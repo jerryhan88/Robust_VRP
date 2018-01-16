@@ -25,7 +25,6 @@ def run(yymm):
     yyyy = '20%s' % yy
     year, month = map(int, [yyyy, mm])
     ifpath = opath.join(TAXI_HOME, '%s/%s/trips/trips-%s-normal.csv' % (yyyy, mm, yymm))
-    # ifpath = opath.join(dpath['raw'], 'trips-%s-normal.csv' % (yymm))
     hour0 = -1
     with open(ifpath) as r_csvfile:
         reader = csv.DictReader(r_csvfile)
@@ -52,7 +51,7 @@ def run(yymm):
             with open(ofpath, 'a') as w_csvfile:
                 writer = csv.writer(w_csvfile, lineterminator='\n')
                 new_row = [departureLocation, arrivalLocation]
-                new_row += [row[cn] for cn in ['distance', 'duration']]
+                new_row += [row[cn] for cn in ['duration', 'distance']]
                 new_row += [row[cn] for cn in ['start-time', 'end-time']]
                 new_row += [year, month]
                 new_row += [row[cn] for cn in ['start-day', 'start-dow', 'start-hour']]
