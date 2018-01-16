@@ -31,9 +31,9 @@ def get_malls():
                 mp = mover.destination(point=mp, bearing=d2)
                 moved_points.append(mp)
             #
-            polygon = [(mp.latitude, mp.longitude) for mp in moved_points]
-            polygon.append((moved_points[0].latitude, moved_points[0].longitude))
-            malls[name] = (lat, lon, polygon)
+            polygon_LatLon = [(mp.latitude, mp.longitude) for mp in moved_points]
+            polygon_LatLon.append((moved_points[0].latitude, moved_points[0].longitude))
+            malls[name] = (lat, lon, polygon_LatLon)
     with open(ofpath, 'wb') as fp:
         pickle.dump(malls, fp)
     return malls
@@ -42,8 +42,9 @@ def get_malls():
 def get_mallPoly():
     mall_polygons = []
     malls = get_malls()
-    for mn, (_, _, polygon) in malls.items():
-        mPoly = poly(polygon)
+    for mn, (_, _, polygon_LatLon) in malls.items():
+        polygon_LonLat = [(LatLon[1], LatLon[0]) for LatLon in polygon_LatLon]
+        mPoly = poly(polygon_LonLat)
         mPoly.name = mn
         mall_polygons.append(mPoly)
     return mall_polygons
