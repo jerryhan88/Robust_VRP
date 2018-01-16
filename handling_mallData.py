@@ -1,17 +1,16 @@
-import os.path as opath
-import csv
 import pickle
 from geopy.distance import VincentyDistance
 from shapely.geometry import Polygon, Point
 #
 from init_project import *
-ZONE_UNIT_KM = 0.1
+#
+ZONE_UNIT_KM = 0.25
 NORTH, EAST, SOUTH, WEST = 0, 90, 180, 270
 
 
 def get_malls():
     ifpath = opath.join(dpath['geo'], 'mall-data.csv')
-    ofpath = opath.join(dpath['home'], 'mallsInfo.pkl')
+    ofpath = opath.join(dpath['home'], 'mallsInfo(%.2f).pkl' % ZONE_UNIT_KM)
     if opath.exists(ofpath):
         with open(ofpath, 'rb') as fp:
             malls = pickle.load(fp)

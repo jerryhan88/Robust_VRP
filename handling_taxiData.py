@@ -1,14 +1,14 @@
-import os.path as opath
-import csv
-#
 from init_project import *
 from handling_mallData import get_mallPoly
 
+logger = get_logger()
+
 
 def run(yymm):
+    logger.info('handle the file; %s' % yymm)
     ofpath = opath.join(dpath['mallTrip'], 'mallTrip-%s.csv' % yymm)
     if opath.exists(ofpath):
-        print('The file had already been processed; %s' % yymm)
+        logger.info('The file had already been processed; %s' % yymm)
         return None
     with open(ofpath, 'wt') as w_csvfile:
         writer = csv.writer(w_csvfile, lineterminator='\n')
@@ -25,9 +25,14 @@ def run(yymm):
     yyyy = '20%s' % yy
     year, month = map(int, [yyyy, mm])
     ifpath = opath.join(TAXI_HOME, '%s/%s/trips/trips-%s-normal.csv' % (yyyy, mm, yymm))
+    hour0 = -1
     with open(ifpath) as r_csvfile:
         reader = csv.DictReader(r_csvfile)
         for row in reader:
+            hour1 = int(row['start-hour'])
+            if hour0 != hour1:
+                logger.info('%dth day, hour %d' % (int(row['start-day']), hour1))
+                hour0 = hour1
             startLon, startLat = map(eval, [row[cn] for cn in ['start-long', 'start-lat']])
             for poly in mall_polygons:
                 if poly.is_including((startLon, startLat)):
@@ -52,6 +57,10 @@ def run(yymm):
                 new_row += [row[cn] for cn in ['start-day', 'start-dow', 'start-hour']]
                 new_row += [row[cn] for cn in ['vehicle-id', 'fare']]
                 writer.writerow(new_row)
+
+
+
+
 
 
 if __name__ == '__main__':
