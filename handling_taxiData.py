@@ -31,7 +31,7 @@ def run(yymm):
         for row in reader:
             hour1 = int(row['start-hour'])
             if hour0 != hour1:
-                logger.info('%dth day, hour %d' % (int(row['start-day']), hour1))
+                logger.info('%s %dth day, hour %d' % (yymm, int(row['start-day']), hour1))
                 hour0 = hour1
             startLon, startLat = map(eval, [row[cn] for cn in ['start-long', 'start-lat']])
             for poly in mall_polygons:

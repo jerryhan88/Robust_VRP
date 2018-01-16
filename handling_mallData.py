@@ -34,6 +34,8 @@ def get_malls():
             polygon = [(mp.latitude, mp.longitude) for mp in moved_points]
             polygon.append((moved_points[0].latitude, moved_points[0].longitude))
             malls[name] = (lat, lon, polygon)
+    with open(ofpath, 'wb') as fp:
+        pickle.dump(malls, fp)
     return malls
 
 
