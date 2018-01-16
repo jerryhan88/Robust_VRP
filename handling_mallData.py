@@ -4,7 +4,7 @@ from shapely.geometry import Polygon, Point
 #
 from init_project import *
 #
-ZONE_UNIT_KM = 0.05
+ZONE_UNIT_KM = 0.1
 NORTH, EAST, SOUTH, WEST = 0, 90, 180, 270
 
 
