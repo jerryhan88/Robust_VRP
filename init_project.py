@@ -2,7 +2,7 @@ from os.path import expanduser
 import os.path as opath
 import os
 #
-TAXI_HOME = opath.join(opath.join(expanduser("~"), ''), 'taxi')
+TAXI_HOME = opath.join(opath.join(expanduser("~"), '..'), 'taxi')
 #
 dpath = {}
 taxi_data_home = opath.join(opath.join(opath.dirname(opath.realpath(__file__)), '..'), 'taxi_data')
