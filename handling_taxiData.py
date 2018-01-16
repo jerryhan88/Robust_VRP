@@ -24,11 +24,8 @@ def run(yymm):
     yy, mm = yymm[:2], yymm[-2:]
     yyyy = '20%s' % yy
     year, month = map(int, [yyyy, mm])
-    # ifpath = opath.join(TAXI_HOME, '%s/%s/trips/trips-%s-normal.csv' % (yyyy, mm, yymm))
-
-    ifpath = opath.join(dpath['raw'], 'trips-%s-normal.csv' % (yymm))
-
-
+    ifpath = opath.join(TAXI_HOME, '%s/%s/trips/trips-%s-normal.csv' % (yyyy, mm, yymm))
+    # ifpath = opath.join(dpath['raw'], 'trips-%s-normal.csv' % (yymm))
     hour0 = -1
     with open(ifpath) as r_csvfile:
         reader = csv.DictReader(r_csvfile)
