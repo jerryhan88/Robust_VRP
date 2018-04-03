@@ -5,7 +5,7 @@ import os
 import csv
 #
 TAXI_HOME = opath.join(opath.join(expanduser("~"), '..'), 'taxi')
-ZONE_UNIT_KM = 0.05
+ZONE_UNIT_KM = 0.1
 #
 dpath = {}
 taxi_data_home = opath.join(opath.join(opath.dirname(opath.realpath(__file__)), '..'), 'taxi_data')
