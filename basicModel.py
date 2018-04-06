@@ -2,96 +2,163 @@ from gurobipy import *
 
 
 def run(inputs):
-    N, c_i, k_i, T_i, H, E, V, t_hij, D, l_d, p_d, n0, Ds = inputs
-    M1 = len(H)
-    M2 = E * len(H)
-
-    RV = Model('RV')
-
-    o_jd, s_d, e_d, z_hd = {}, {}, {}, {}
-    y_vd, x_hvdd, u_d, a_d, w_d = {}, {}, {}, {}, {}
+    assert len(inputs) == 17
+    n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2 = inputs
+    #
+    subInputs = (D, k_i, l_d, H)
+    BM, g_jd, s_d, e_d, z_hd = set_dvsSchedule('BM', subInputs)
+    y_vd, x_hvdd, a_d = {}, {}, {}
+    for v in V:
+        for d in D:
+            y_vd[v, d] = BM.addVar(vtype=GRB.BINARY, name='y[%d,%d]' % (v, d))
     for d in D:
-        for j in k_i[l_d[d]]:
-            o_jd[j, d] = RV.addVar(vtype=GRB.BINARY, name='w[%d,%d]' % (j, d))
-        s_d[d] = RV.addVar(vtype=GRB.INTEGER, name='s[%d]' % d)
-        e_d[d] = RV.addVar(vtype=GRB.INTEGER, name='e[%d]' % d)
+        a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
+    for v in V:
         for h in H:
-            z_hd[h, d] = RV.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (h, d))
-        for v in V:
-            y_vd[v, d] = RV.addVar(vtype=GRB.BINARY, name='y[%d,%d]' % (v, d))
-        u_d[d] = RV.addVar(vtype=GRB.INTEGER, name='u[%d]' % d)
-        a_d[d] = RV.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
-        w_d[d] = RV.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
-    for h in H:
-        for v in V:
             for d1 in Ds:
                 for d2 in Ds:
-                    x_hvdd[h, v, d1, d2] = RV.addVar(vtype=GRB.BINARY, name='x[%d,%d,%d,%d]' % (h, v, d1, d2))
-    RV.update()
+                    x_hvdd[h, v, d1, d2] = BM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%d,%d]' % (h, v, d1, d2))
+    BM.update()
     #
     obj = LinExpr()
+
     for d in D:
-        obj += w_d[d]
-    RV.setObjective(obj, GRB.MINIMIZE)
+        obj += (cT * s_d[d] - a_d[d])
+
+
+    # for v in V:
+    #     for h in H:
+    #         for d1 in D:
+    #             for d2 in D:
+    #                 obj += t_hij[h][l_d[d1]][l_d[d2]] * x_hvdd[h, v, d1, d2]
+
+    BM.setObjective(obj, GRB.MINIMIZE)
     #
+    # Define constraints related to time slot scheduling
+    #
+    subInputs = (D, k_i, l_d, p_d, Di, H, N, c_i, T_i, M1)
+    dvsSchedule = g_jd, s_d, e_d, z_hd
+    set_ctsScheduleDM(BM, subInputs, dvsSchedule)
     for d in D:
-        RV.addConstr(quicksum(o_jd[j, d] for j in k_i[l_d[d]]) == 1, name='d2t[%d]' % d)  # ct2
+        BM.addConstr(quicksum(z_hd[h, d] for h in H) == p_d[d], name='processingT[%d,%d]' % (h, d))
     for d in D:
-        RV.addConstr(s_d[d] + p_d[d] == e_d[d], name='s_e_ts[%d]' % d)  # ct3
-        for h in H:
-            RV.addConstr(s_d[d] <= h + M1 * (1 - z_hd[h, d]), name='sh_ts[%d,%d]' % (h, d))  # ct4
-            RV.addConstr(h <= e_d[d] + M1 * (1 - z_hd[h, d]), name='eh_ts[%d,%d]' % (h, d))  # ct5
-    for h in H:
+        BM.addConstr(s_d[d] + (p_d[d] - 1) == e_d[d], name='seTS_proT[%d]' % d)
+    #
+    # Define constraints related to vehicle routing
+    #
+    for v in V:
         for i in N:
-            RV.addConstr(quicksum(z_hd[h, d] for d in D if l_d[d] == i) <= c_i[i], name='n_c[%d,%d]' % (h, i))  # ct6
+            for d1 in Di[i]:
+                for d2 in Di[i]:
+                    BM.addConstr(quicksum(x_hvdd[h, v, d1, d2] for h in H) == 0, name='xSameLoc[%d,%d,%d,%d]' % (h, v, d1, d2))
+    for v in V:
+        BM.addConstr(quicksum(x_hvdd[h, v, n0, d] for h in H for d in Ds) == 1, name='DpoFlowO[%d]' % v)
+        BM.addConstr(quicksum(x_hvdd[h, v, d, n0] for h in H for d in Ds) == 1, name='DpoFlowI[%d]' % v)
+        for d1 in D:
+            BM.addConstr(quicksum(x_hvdd[h, v, d1, d2] for h in H for d2 in Ds) == y_vd[v, d1],
+                         name='OF_ASG[%d,%d]' % (v, d1))
+            BM.addConstr(quicksum(x_hvdd[h, v, d2, d1] for h in H for d2 in Ds) == y_vd[v, d1],
+                         name='IF_ASG[%d,%d]' % (v, d1))
+    for d in D:
+        BM.addConstr(quicksum(y_vd[v, d] for v in V) == 1, name='d2v[%d]' % d)
+    for d in D:
+        BM.addConstr(0 <= a_d[d], name='initAT1[%d]' % d)
+        BM.addConstr(a_d[d] <= M2, name='initAT2[%d]' % d)
+    for v in V:
+        for h in H:
+            for d in D:
+                BM.addConstr(t_hij[h][n0][l_d[d]] - a_d[d] <= M2 * (1 - x_hvdd[h, v, n0, d]),
+                             name='calAT1[%d,%d,%d]' % (h, v, d))
+            for d1 in D:
+                for d2 in D:
+                    BM.addConstr(a_d[d1] + cT * p_d[d1] + t_hij[h][l_d[d1]][l_d[d2]] - a_d[d2] \
+                                 <= M2 * (1 - x_hvdd[h, v, d1, d2]),
+                                 name='calAT2[%d,%d,%d,%d]' % (h, v, d1, d2))
+
+                    # BM.addConstr(cT * e_d[d1] + t_hij[h][l_d[d1]][l_d[d2]] - a_d[d2] \
+                    #              <= M2 * (1 - x_hvdd[h, v, d1, d2]),
+                    #              name='calAT2[%d,%d,%d,%d]' % (h, v, d1, d2))
+
+    for d in D:
+        BM.addConstr(a_d[d] <= cT * s_d[d], name='beforeST[%d]' % d)
+    #
+    BM.optimize()
+    #
+    BM.write('temp.lp')
+    # BM.computeIIS()
+    # BM.write('temp.ilp')
+
+
+    print('')
+    print('Time slot scheduling')
+    for d in D:
+        print('D%d: TS [%02d, %02d]; \t AT %.2f; \t WT %.2f' % (d, s_d[d].x, e_d[d].x, a_d[d].x,
+                                                      (cT * s_d[d].x - a_d[d].x)))
+    # for d in [0, 5]:
+    #     print(d, [z_hd[h, d].x for h in H])
+
+
+    print('')
+    print('Vehicle routing')
+    for v in V:
+        demand = []
+        for d in D:
+            if y_vd[v, d].x > 0.5:
+                demand.append(d)
+        _route = {}
+        for h in H:
+            for d1 in Ds:
+                for d2 in Ds:
+                    if x_hvdd[h, v, d1, d2].x > 0.5:
+                        _route[d1] = d2
+        route = [n0, _route[n0]]
+        while route[-1] != n0:
+            route.append(_route[route[-1]])
+        print('V%d: %s (%s)' % (v, str(demand), '-'.join(map(str, route))))
+
+# logContents += '\t ObjV: %.3f\n' % EX.objVal
+
+
+
+def set_dvsSchedule(modelName, subInputs):
+    MM = Model(modelName)
+    D, k_i, l_d, H = subInputs
+    g_jd, s_d, e_d, z_hd = {}, {}, {}, {}
     for d in D:
         for j in k_i[l_d[d]]:
-            RV.addConstr(T_i[l_d[d]][j][0] <= s_d[d] + M1 * (1 - o_jd[j, d]), name='tw_alpha[%d,%d]' % (j, d))  # ct7
-            RV.addConstr(e_d[d] <= T_i[l_d[d]][j][1] + M1 * (1 - o_jd[j, d]), name='tw_beta[%d,%d]' % (j, d))  # ct8
-    for v in V:
-        for h in H:
-            for i in N:
-                iLocDemands = [d for d in D if l_d[d] == i]
-                for d1 in iLocDemands:
-                    for d2 in iLocDemands:
-                        RV.addConstr(x_hvdd[h, v, d1, d2] == 0, name='sl_ds[%d,%d,%d,%d]' % (h, v, d1, d2))  # ct9
-    for d in D:
-        RV.addConstr(quicksum(y_vd[v, d] for v in V) == 1, name='d2v[%d]' % d)  # ct10
-    for v in V:
-        RV.addConstr(quicksum(x_hvdd[h, v, n0, d] for d in D for h in H) <= 1, name='ofD[%d]' % v)  # ct11_1
-        RV.addConstr(quicksum(x_hvdd[h, v, d, n0] for d in D for h in H) <= 1, name='inD[%d]' % v)  # ct11_1
-        for d1 in D:
-            RV.addConstr(quicksum(x_hvdd[h, v, d1, d2] for d2 in Ds for h in H) == y_vd[v, d1],
-                         name='a_of[%d,%d]' % (v, d1))  # ct12_1
-            RV.addConstr(quicksum(x_hvdd[h, v, d2, d1] for d2 in Ds for h in H) == y_vd[v, d1],
-                         name='a_if[%d,%d]' % (v, d1))  # ct12_2
-    for d in D:
-        RV.addConstr(1 <= u_d[d], name='se1[%d]' % d)  # ct13_1
-        RV.addConstr(u_d[d] <= len(D), name='se2[%d]' % d)  # ct13_2
-
+            g_jd[j, d] = MM.addVar(vtype=GRB.BINARY, name='g[%d,%d]' % (j, d))
+        s_d[d] = MM.addVar(vtype=GRB.INTEGER, name='s[%d]' % d)
+        e_d[d] = MM.addVar(vtype=GRB.INTEGER, name='e[%d]' % d)
     for h in H:
-        for v in V:
-            for d1 in D:
-                for d2 in D:
-                    RV.addConstr(u_d[d1] - u_d[d2] + 1 <= len(D) * (1 - x_hvdd[h, v, d1, d2]),
-                                 name='se3[%d,%d,%d,%d]' % (h, v, d1, d2))  # ct14
-    for h in H:
-        for v in V:
-            for d in D:
-                RV.addConstr(t_hij[h][len(N)][l_d[d]] - a_d[d] <= M2 * (1 - x_hvdd[h, v, n0, d]),
-                             name='atc1[%d,%d,%d]' % (h, v, d))  # ct15
-    for h in H:
-        for v in V:
-            for d1 in D:
-                for d2 in D:
-                    RV.addConstr(a_d[d1] + E * p_d[d1] + t_hij[h][l_d[d1]][l_d[d2]] - a_d[d2] <= M2 * (1 - x_hvdd[h, v, d1, d2]),
-                                 name='atc2[%d,%d,%d,%d]' % (h, v, d1, d2))  # ct16
-    for d in D:
-        RV.addConstr(E * s_d[d] - a_d[d] <= w_d[d], name='wt[%d]' % d)  # ct17
+        for d in D:
+            z_hd[h, d] = MM.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (h, d))
     #
-    RV.optimize()
+    return MM, g_jd, s_d, e_d, z_hd
+
+
+def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
+    #
+    # Define deterministic constraints related to time slot scheduling
+    #
+    D, k_i, l_d, p_d, Di, H, N, c_i, T_i, M1 = subInputs
+    g_jd, s_d, e_d, z_hd = dvsSchedule
+    for d in D:
+        MM.addConstr(quicksum(g_jd[j, d] for j in k_i[l_d[d]]) == 1, name='d2tw[%d]' % d)
+        for j in k_i[l_d[d]]:
+            MM.addConstr(T_i[l_d[d]][j][0] <= s_d[d] + M1 * (1 - g_jd[j, d]), name='tw_alpha[%d,%d]' % (j, d))
+            MM.addConstr(e_d[d] <= T_i[l_d[d]][j][1] + M1 * (1 - g_jd[j, d]), name='tw_beta[%d,%d]' % (j, d))
+    for h in H:
+        for d in D:
+            MM.addConstr(s_d[d] <= h + M1 * (1 - z_hd[h, d]), name='startTS[%d,%d]' % (h, d))
+            MM.addConstr(h <= e_d[d] + M1 * (1 - z_hd[h, d]), name='endTS[%d,%d]' % (h, d))
+    for h in H:
+        for i in N:
+            MM.addConstr(quicksum(z_hd[h, d] for d in Di[i]) <= c_i[i], name='nodeCap[%d,%d]' % (h, i))
 
 
 if __name__ == '__main__':
-    from problems import ex1
-    run(ex1())
+    from problems import *
+
+    run(s1())
+
+    # run(s2())
