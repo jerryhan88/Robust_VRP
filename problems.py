@@ -58,43 +58,6 @@ def s2():
     return n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
 
 
-
-def s3():
-    nV, nH, nN, nD, uT = 3, 12, 5, 10, 1
-    assert nN <= nD
-    #
-    n0 = nD
-    V = list(range(nV))
-    H = list(range(nH))
-    cT = 1
-    #
-    N = list(range(nN))
-    Ns = list(range(n0 + 1))
-    c_i = [1, 1, 1, 2, 2]
-    k_i = map(list, map(range, [1, 1, 2, 2, 1]))
-    T_i = [
-            [(0, 7)],
-            [(4, 10)],
-            [(0, 2), (5, 8)],
-            [(1, 5), (8, 11)],
-            [(3, 10)],
-          ]
-    #
-    D = list(range(nD))
-    Ds = D + [n0]
-    l_d = [0, 1, 2, 3, 4, 0, 3, 3, 4, 4]
-    Di = [[d for d in D if l_d[d] == i] for i in N]
-    #
-    p_d = [1, 1, 2, 2, 1, 2, 2, 3, 3, 4]
-    t_hij = gen_t_hij(H, Ns, nN, uT)
-    #
-    M1 = len(H)
-    M2 = cT * len(H)
-    #
-    return n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
-
-
-
 def ms_ex1():
     nV, nH, nN, nD, nU = 3, 12, 5, 10, 2
     assert nN <= nD
