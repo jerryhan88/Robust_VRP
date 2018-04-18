@@ -159,5 +159,5 @@ if __name__ == '__main__':
     from problems import s0, s1, s2
 
     run(s0())
-    # run(s1())
-    # run(s2())
+    run(s1())
+    run(s2())
