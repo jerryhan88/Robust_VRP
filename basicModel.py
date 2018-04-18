@@ -152,7 +152,7 @@ def run(inputs):
             while route[-1] != n0:
                 route.append(_route[route[-1]])
             f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
-            f.write('\t\t\t\t\t (%s)\n' % '-'.join(map(str, [cT * s_d[d].x - w_d[d].x for d in route[1:-1]])))
+            f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_d[d].x) for d in route[1:-1]]))
 
 
 if __name__ == '__main__':

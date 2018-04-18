@@ -112,13 +112,22 @@ def run(inputs):
             f.write('Scenario %d \n' % u)
 
 
-
-    print('')
-    print('Time slot scheduling')
-    for d in D:
-        print('D%d: TS [%02d, %02d];' % (d, s_d[d].x, e_d[d].x))
-        for u in U:
-            print('\t\t\t\t s%d: AT %.2f; \t WT %.2f' % (u, a_ud[u, d].x, w_ud[u, d].x))
+            for v in V:
+                demand = []
+                for d in D:
+                    if y_vd[v, d].x > 0.5:
+                        demand.append(d)
+                _route = {}
+                for h in H:
+                    for d1 in Ds:
+                        for d2 in Ds:
+                            if x_hvdd[h, v, d1, d2].x > 0.5:
+                                _route[d1] = d2
+                route = [n0, _route[n0]]
+                while route[-1] != n0:
+                    route.append(_route[route[-1]])
+                f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
+                f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_d[d].x) for d in route[1:-1]]))
 
 
 
