@@ -134,7 +134,7 @@ def run(inputs):
         f.write('\n')
         f.write('Time slot scheduling\n')
         for d in D:
-            f.write('\t D%d: TS [%02d, %02d]; \t AT %.2f; \t WT %.2f\n' % (d, s_d[d].x, e_d[d].x, a_d[d].x, w_d[d].x))
+            f.write('\t D%d: TS [%02d, %02d]; \t WT %.2f\n' % (d, s_d[d].x, e_d[d].x, w_d[d].x))
         f.write('\n')
         f.write('Vehicle routing\n')
         for v in V:
@@ -152,7 +152,7 @@ def run(inputs):
             while route[-1] != n0:
                 route.append(_route[route[-1]])
             f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
-            f.write('\t\t\t\t\t (%s)\n' % '-'.join(map(str, [a_d[d].x for d in route[1:-1]])))
+            f.write('\t\t\t\t\t (%s)\n' % '-'.join(map(str, [cT * s_d.x - w_d[d].x for d in route[1:-1]])))
 
 
 if __name__ == '__main__':

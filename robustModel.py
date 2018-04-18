@@ -1,4 +1,5 @@
 import multiprocessing
+import time
 from gurobipy import *
 from basicModel import set_dvsSchedule, set_ctsScheduleDM
 
@@ -6,6 +7,7 @@ NUM_CORES = multiprocessing.cpu_count()
 
 
 def run(inputs):
+    startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 19
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2 = inputs
     #
@@ -88,6 +90,26 @@ def run(inputs):
         RM.write('%s.lp' % problemName)
         RM.computeIIS()
         RM.write('%s.ilp' % problemName)
+    endCpuTime, endWallTime = time.clock(), time.time()
+    eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
+    #
+    # Write a file saving the optimal solution
+    #
+    with open('%s.txt' % problemName, 'w') as f:
+        f.write('The optimal solution of problem %s\n' % problemName)
+        logContents = 'Summary\n'
+        logContents += '\t Cpu Time: %f\n' % eliCpuTime
+        logContents += '\t Wall Time: %f\n' % eliWallTime
+        logContents += '\t ObjV: %.3f\n' % RM.objVal
+        f.write(logContents)
+        f.write('\n')
+        f.write('Time slot scheduling\n')
+        for d in D:
+            f.write('\t D%d: TS [%02d, %02d]\n' % (d, s_d[d].x, e_d[d].x))
+        f.write('\n')
+        f.write('Vehicle routing for each scenario\n')
+        for u in U:
+            f.write('Scenario %d \n' % u)
 
 
 
