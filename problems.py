@@ -27,7 +27,7 @@ def s0():
     N = list(range(nN))
     Ns = list(range(n0 + 1))
     c_i = [1, 1, 1, 2, 2]
-    k_i = map(list, map(range, [1, 1, 2, 2, 1]))
+    k_i = list(map(range, [1, 1, 2, 2, 1]))
     T_i = [
             [(0, 5)],
             [(5, 11)],
@@ -85,7 +85,7 @@ def ms_ex0():
     N = list(range(nN))
     Ns = list(range(n0 + 1))
     c_i = [1, 1, 1, 2, 2]
-    k_i = map(list, map(range, [1, 1, 2, 2, 1]))
+    k_i = list(map(range, [1, 1, 2, 2, 1]))
     T_i = [
             [(0, 5)],
             [(5, 11)],
