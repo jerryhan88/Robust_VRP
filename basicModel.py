@@ -127,14 +127,8 @@ def run(inputs):
     with open('%s.txt' % problemName, 'w') as f:
         f.write('The optimal solution of problem %s\n' % problemName)
         logContents = 'Summary\n'
-        logContents += '\t Cpu Time\n'
-        logContents += '\t\t Sta.Time: %s\n' % str(startCpuTime)
-        logContents += '\t\t End.Time: %s\n' % str(endCpuTime)
-        logContents += '\t\t Eli.Time: %f\n' % eliCpuTime
-        logContents += '\t Wall Time\n'
-        logContents += '\t\t Sta.Time: %s\n' % str(startWallTime)
-        logContents += '\t\t End.Time: %s\n' % str(endWallTime)
-        logContents += '\t\t Eli.Time: %f\n' % eliWallTime
+        logContents += '\t Cpu Time: %f\n' % eliCpuTime
+        logContents += '\t Wall Time: %f\n' % eliWallTime
         logContents += '\t ObjV: %.3f\n' % BM.objVal
         f.write(logContents)
         f.write('\n')
