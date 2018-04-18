@@ -113,8 +113,8 @@ def run(inputs):
     BM.setParam('Threads', NUM_CORES)
     BM.optimize()
     #
-    BM.write('%s.lp' % problemName)
     if BM.status == GRB.Status.INFEASIBLE:
+        BM.write('%s.lp' % problemName)
         BM.computeIIS()
         BM.write('%s.ilp' % problemName)
     #
