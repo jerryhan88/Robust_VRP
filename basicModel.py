@@ -1,4 +1,5 @@
 import multiprocessing
+import time
 from gurobipy import *
 
 NUM_CORES = multiprocessing.cpu_count()
@@ -41,6 +42,7 @@ def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
 
 
 def run(inputs):
+    startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 18
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2 = inputs
     #
@@ -117,12 +119,24 @@ def run(inputs):
         BM.write('%s.lp' % problemName)
         BM.computeIIS()
         BM.write('%s.ilp' % problemName)
+    endCpuTime, endWallTime = time.clock(), time.time()
+    eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
     #
     # Write a file saving the optimal solution
     #
     with open('%s.txt' % problemName, 'w') as f:
         f.write('The optimal solution of problem %s\n' % problemName)
-        f.write('The optimal value is %.3f\n' % BM.objVal)
+        logContents = 'Summary\n'
+        logContents += '\t Cpu Time\n'
+        logContents += '\t\t Sta.Time: %s\n' % str(startCpuTime)
+        logContents += '\t\t End.Time: %s\n' % str(endCpuTime)
+        logContents += '\t\t Eli.Time: %f\n' % eliCpuTime
+        logContents += '\t Wall Time\n'
+        logContents += '\t\t Sta.Time: %s\n' % str(startWallTime)
+        logContents += '\t\t End.Time: %s\n' % str(endWallTime)
+        logContents += '\t\t Eli.Time: %f\n' % eliWallTime
+        logContents += '\t ObjV: %.3f\n' % BM.objVal
+        f.write(logContents)
         f.write('\n')
         f.write('Time slot scheduling\n')
         for d in D:
