@@ -9,6 +9,8 @@ def set_dvsSchedule(modelName, subInputs):
     D, k_i, l_d, H = subInputs
     g_jd, s_d, e_d, z_hd = {}, {}, {}, {}
     for d in D:
+        print(l_d[d])
+        print(k_i[l_d[d]])
         for j in k_i[l_d[d]]:
             g_jd[j, d] = MM.addVar(vtype=GRB.BINARY, name='g[%d,%d]' % (j, d))
         s_d[d] = MM.addVar(vtype=GRB.INTEGER, name='s[%d]' % d)
@@ -151,5 +153,5 @@ if __name__ == '__main__':
     from problems import s0, s1, s2
 
     run(s0())
-    run(s1())
-    run(s2())
+    # run(s1())
+    # run(s2())
