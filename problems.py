@@ -14,7 +14,8 @@ def gen_t_hij(H, Ns, nN, uT):
     return t_hij
 
 
-def s1():
+def s0():
+    problemName = 's0'
     nV, nH, nN, nD, uT = 3, 12, 5, 10, 1
     assert nN <= nD
     #
@@ -46,20 +47,34 @@ def s1():
     M1 = len(H)
     M2 = cT * len(H)
     #
-    return n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
+    return problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
 
 
-def s2():
-    n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, _, M1, M2 = s1()
+def s1():
+    problemName = 's1'
+    _, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, _, M1, M2 = s0()
     #
     uT, nN = 0.5, len(N)
     t_hij = gen_t_hij(H, Ns, nN, uT)
     #
-    return n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
+    return problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
 
 
-def ms_ex1():
-    nV, nH, nN, nD, nU = 3, 12, 5, 10, 2
+def s2():
+    problemName = 's2'
+    _, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, _, _, M1, M2 = s0()
+    #
+    p_d = [2, 3, 2, 1, 1, 1, 2, 2, 2, 2]
+    #
+    uT, nN = 0.5, len(N)
+    t_hij = gen_t_hij(H, Ns, nN, uT)
+    #
+    return problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
+
+
+def ms_ex0():
+    problemName = 's1s2s3'
+    nV, nH, nN, nD, nU = 3, 12, 5, 10, 3
     assert nN <= nD
     #
     n0 = nD
@@ -72,11 +87,11 @@ def ms_ex1():
     c_i = [1, 1, 1, 2, 2]
     k_i = map(list, map(range, [1, 1, 2, 2, 1]))
     T_i = [
-            [(0, 6)],
-            [(6, 12)],
-            [(0, 3), (6, 10)],
-            [(3, 6), (9, 12)],
-            [(3, 11)],
+            [(0, 5)],
+            [(5, 11)],
+            [(0, 2), (5, 8)],
+            [(2, 5), (9, 11)],
+            [(3, 10)],
           ]
     #
     D = list(range(nD))
@@ -86,6 +101,7 @@ def ms_ex1():
     #
     U = list(range(nU))
     p_ud = [[1, 1, 2, 2, 1, 2, 2, 3, 3, 4],
+            [1, 1, 2, 2, 1, 2, 2, 3, 3, 4],
             [2, 3, 2, 1, 1, 1, 2, 2, 2, 2]]
     t_uhij = []
     for u in U:
@@ -96,8 +112,8 @@ def ms_ex1():
     M1 = len(H)
     M2 = cT * len(H)
     #
-    return n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2
+    return problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2
 
 
 if __name__ == '__main__':
-    s1()
+    s0()
