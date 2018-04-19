@@ -41,7 +41,7 @@ def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
             MM.addConstr(quicksum(z_hd[h, d] for d in Di[i]) <= c_i[i], name='nodeCap[%d,%d]' % (h, i))
 
 
-def run(inputs, sol_pkl=False):
+def run(inputs, ims_pkl=False):
     startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 18
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2 = inputs
@@ -153,7 +153,7 @@ def run(inputs, sol_pkl=False):
                 route.append(_route[route[-1]])
             f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
             f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_d[d].x) for d in route[1:-1]]))
-    if sol_pkl:
+    if ims_pkl:
         import pickle
         #
         dvs = [g_jd, s_d, e_d, z_hd, y_vd, x_hvdd, a_d, w_d, epi_W]
@@ -164,6 +164,6 @@ def run(inputs, sol_pkl=False):
 if __name__ == '__main__':
     from problems import s0, s1, s2
 
-    run(s0(), sol_pkl=True)
-    run(s1(), sol_pkl=True)
-    run(s2(), sol_pkl=True)
+    run(s0(), ims_pkl=True)
+    run(s1(), ims_pkl=True)
+    run(s2(), ims_pkl=True)
