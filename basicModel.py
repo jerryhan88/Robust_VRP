@@ -21,6 +21,22 @@ def set_dvsSchedule(modelName, subInputs):
     return MM, g_jd, s_d, e_d, z_hd
 
 
+def get_dvsScheduleVal(subInputs, dvs):
+    D, k_i, l_d, H = subInputs
+    g_jd, s_d, e_d, z_hd = dvs
+    #
+    _g_jd, _s_d, _e_d, _z_hd = {}, {}, {}, {}
+    for d in D:
+        for j in k_i[l_d[d]]:
+            _g_jd[j, d] = g_jd[j, d].x
+        _s_d[d] = s_d[d].x
+        _e_d[d] = e_d[d].x
+    for h in H:
+        for d in D:
+            _z_hd[h, d] = z_hd[h, d].x
+    #
+    return _g_jd, _s_d, _e_d, _z_hd
+
 def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
     #
     # Define deterministic constraints related to time slot scheduling
@@ -156,9 +172,20 @@ def run(inputs, is_pkl=False):
     if is_pkl:
         import pickle
         #
-        dvs = [g_jd, s_d, e_d, z_hd, y_vd, x_hvdd, a_d, w_d, epi_W]
+        subInputs = [D, k_i, l_d, H]
+        dvs = [g_jd, s_d, e_d, z_hd]
+        _g_jd, _s_d, _e_d, _z_hd = get_dvsScheduleVal(subInputs, dvs)
+        _y_vd = {(v, d): y_vd[v, d].x for v in V for d in D}
+        _x_hvdd = {(h, v, d1, d2): x_hvdd[h, v, d1, d2].x
+                  for v in V for h in H for d1 in Ds for d2 in Ds}
+        _a_d, _w_d = {}, {}
+        for d in D:
+            _a_d[d] = a_d[d].x
+            _w_d[d] = w_d[d].x
+        _epi_W = epi_W.x
+        sols = [_g_jd, _s_d, _e_d, _z_hd, _y_vd, _x_hvdd, _a_d, _w_d, _epi_W]
         with open('is_%s.pkl' % problemName, 'wb') as fp:
-            pickle.dump([inputs, dvs], fp)
+            pickle.dump([inputs, sols], fp)
 
 
 if __name__ == '__main__':
