@@ -31,8 +31,7 @@ def run(inputs):
     # Epigraph function
     #
     for u in U:
-        for d in D:
-            RM.addConstr(w_ud[u, d] <= epi_t)
+        RM.addConstr(quicksum(w_ud[u, d] for d in D) <= epi_t)
     #
     # Define constraints related to time slot scheduling
     #

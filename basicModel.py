@@ -57,18 +57,12 @@ def run(inputs):
     for d in D:
         a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
         w_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
-    epi_t = BM.addVar(vtype=GRB.CONTINUOUS, name='epi_t')
     BM.update()
     #
     obj = LinExpr()
-    obj += epi_t
-
-    BM.setObjective(obj, GRB.MINIMIZE)
-    #
-    # Epigraph function
-    #
     for d in D:
-        BM.addConstr(w_d[d] <= epi_t)
+        obj += w_d[d]
+    BM.setObjective(obj, GRB.MINIMIZE)
     #
     # Define constraints related to time slot scheduling
     #
