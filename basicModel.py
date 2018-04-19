@@ -135,8 +135,7 @@ def run(inputs, writing_files=False):
         BM.write('%s.lp' % problemName)
         BM.computeIIS()
         BM.write('%s.ilp' % problemName)
-    endCpuTime, endWallTime = time.clock(), time.time()
-    eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
+    #
     if writing_files:
         import os.path as opath
         import os
@@ -147,6 +146,8 @@ def run(inputs, writing_files=False):
         #
         # Write a text file saving the optimal solution
         #
+        endCpuTime, endWallTime = time.clock(), time.time()
+        eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
         with open(opath.join(temp_dir, '%s.txt' % problemName), 'w') as f:
             f.write('The optimal solution of problem %s\n' % problemName)
             logContents = 'Summary\n'
