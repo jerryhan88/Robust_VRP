@@ -41,7 +41,7 @@ def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
             MM.addConstr(quicksum(z_hd[h, d] for d in Di[i]) <= c_i[i], name='nodeCap[%d,%d]' % (h, i))
 
 
-def run(inputs):
+def run(inputs, sol_pkl=False):
     startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 18
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2 = inputs
@@ -57,12 +57,13 @@ def run(inputs):
     for d in D:
         a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
         w_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
+    epi_W = BM.addVar(vtype=GRB.CONTINUOUS, name='epi_W')
     BM.update()
     #
     obj = LinExpr()
-    for d in D:
-        obj += w_d[d]
+    obj += epi_W
     BM.setObjective(obj, GRB.MINIMIZE)
+    #
     #
     # Define constraints related to time slot scheduling
     #
@@ -106,6 +107,11 @@ def run(inputs):
                                  <= a_d[d2] + M2 * (1 - x_hvdd[h, v, d1, d2]),
                                  name='merAT2[%d,%d,%d,%d]' % (h, v, d1, d2))
     #
+    # Maximum waiting time (epigraph function)
+    #
+    for d in D:
+        BM.addConstr(w_d[d] <= epi_W)
+    #
     BM.setParam('Threads', NUM_CORES)
     BM.optimize()
     #
@@ -147,11 +153,17 @@ def run(inputs):
                 route.append(_route[route[-1]])
             f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
             f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_d[d].x) for d in route[1:-1]]))
+    if sol_pkl:
+        import pickle
+        #
+        dvs = [g_jd, s_d, e_d, z_hd, y_vd, x_hvdd, a_d, w_d, epi_W]
+        with open('ims_%s.pkl' % problemName, 'wb') as fp:
+            pickle.dump([inputs, BM, dvs], fp)
 
 
 if __name__ == '__main__':
     from problems import s0, s1, s2
 
-    run(s0())
-    run(s1())
-    run(s2())
+    run(s0(), sol_pkl=True)
+    run(s1(), sol_pkl=True)
+    run(s2(), sol_pkl=True)

@@ -6,7 +6,7 @@ from basicModel import set_dvsSchedule, set_ctsScheduleDM
 NUM_CORES = multiprocessing.cpu_count()
 
 
-def run(inputs):
+def run(inputs, sol_pkl=False):
     startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 19
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2 = inputs
@@ -21,17 +21,12 @@ def run(inputs):
             for u in U for d in D}
     w_ud = {(u, d): RM.addVar(vtype=GRB.CONTINUOUS, name='w[%d,%d]' % (u, d))
             for u in U for d in D}
-    epi_t = RM.addVar(vtype=GRB.CONTINUOUS, name='epi_t')
+    epi_W = RM.addVar(vtype=GRB.CONTINUOUS, name='epi_W')
     RM.update()
     #
     obj = LinExpr()
-    obj += epi_t
+    obj += epi_W
     RM.setObjective(obj, GRB.MINIMIZE)
-    #
-    # Epigraph function
-    #
-    for u in U:
-        RM.addConstr(quicksum(w_ud[u, d] for d in D) <= epi_t)
     #
     # Define constraints related to time slot scheduling
     #
@@ -80,6 +75,12 @@ def run(inputs):
                         RM.addConstr(cT * (s_d[d1] + p_ud[u][d1]) + t_uhij[u][h][l_d[d1]][l_d[d2]] + w_ud[u, d2] \
                                      <= a_ud[u, d2] + M2 * (1 - x_uhvdd[u, h, v, d1, d2]),
                                      name='calAT2[%d,%d,%d,%d,%d]' % (u, h, v, d1, d2))
+    #
+    # Maximum waiting time (epigraph function)
+    #
+    for u in U:
+        for d in D:
+            RM.addConstr(w_ud[u, d] <= epi_W)
 
     #
     RM.setParam('Threads', NUM_CORES)
@@ -126,7 +127,12 @@ def run(inputs):
                     route.append(_route[route[-1]])
                 f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
                 f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_ud[u, d].x) for d in route[1:-1]]))
-
+    if sol_pkl:
+        import pickle
+        #
+        dvs = [g_jd, s_d, e_d, z_hd, y_uvd, x_uhvdd, a_ud, w_ud, epi_W]
+        with open('ims_%s.pkl' % problemName, 'wb') as fp:
+            pickle.dump([inputs, RM, dvs], fp)
 
 
 if __name__ == '__main__':
