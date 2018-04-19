@@ -6,7 +6,7 @@ from basicModel import set_dvsSchedule, set_ctsScheduleDM
 NUM_CORES = multiprocessing.cpu_count()
 
 
-def run(inputs, ims_pkl=False):
+def run(inputs, is_pkl=False):
     startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 19
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2 = inputs
@@ -127,14 +127,14 @@ def run(inputs, ims_pkl=False):
                     route.append(_route[route[-1]])
                 f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
                 f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_ud[u, d].x) for d in route[1:-1]]))
-    if ims_pkl:
+    if is_pkl:
         import pickle
         #
         dvs = [g_jd, s_d, e_d, z_hd, y_uvd, x_uhvdd, a_ud, w_ud, epi_W]
-        with open('ims_%s.pkl' % problemName, 'wb') as fp:
-            pickle.dump([inputs, RM, dvs], fp)
+        with open('is_%s.pkl' % problemName, 'wb') as fp:
+            pickle.dump([inputs, dvs], fp)
 
 
 if __name__ == '__main__':
     from problems import ms_ex0
-    run(ms_ex0(), ims_pkl=True)
+    run(ms_ex0(), is_pkl=True)
