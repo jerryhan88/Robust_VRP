@@ -57,7 +57,7 @@ def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
             MM.addConstr(quicksum(z_hd[h, d] for d in Di[i]) <= c_i[i], name='nodeCap[%d,%d]' % (h, i))
 
 
-def run(inputs, is_pkl=False):
+def run(inputs, writing_files=False):
     startCpuTime, startWallTime = time.clock(), time.time()
     assert len(inputs) == 18
     problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2 = inputs
@@ -137,40 +137,47 @@ def run(inputs, is_pkl=False):
         BM.write('%s.ilp' % problemName)
     endCpuTime, endWallTime = time.clock(), time.time()
     eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-    #
-    # Write a file saving the optimal solution
-    #
-    with open('%s.txt' % problemName, 'w') as f:
-        f.write('The optimal solution of problem %s\n' % problemName)
-        logContents = 'Summary\n'
-        logContents += '\t Cpu Time: %f\n' % eliCpuTime
-        logContents += '\t Wall Time: %f\n' % eliWallTime
-        logContents += '\t ObjV: %.3f\n' % BM.objVal
-        f.write(logContents)
-        f.write('\n')
-        f.write('Time slot scheduling\n')
-        for d in D:
-            f.write('\t D%d: TS [%02d, %02d]; \t WT %.2f\n' % (d, s_d[d].x, e_d[d].x, w_d[d].x))
-        f.write('\n')
-        f.write('Vehicle routing\n')
-        for v in V:
-            demand = []
-            for d in D:
-                if y_vd[v, d].x > 0.5:
-                    demand.append(d)
-            _route = {}
-            for h in H:
-                for d1 in Ds:
-                    for d2 in Ds:
-                        if x_hvdd[h, v, d1, d2].x > 0.5:
-                            _route[d1] = d2
-            route = [n0, _route[n0]]
-            while route[-1] != n0:
-                route.append(_route[route[-1]])
-            f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
-            f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_d[d].x) for d in route[1:-1]]))
-    if is_pkl:
+    if writing_files:
+        import os.path as opath
+        import os
         import pickle
+        temp_dir = '_temp'
+        if not opath.exists(temp_dir):
+            os.mkdir(temp_dir)
+        #
+        # Write a text file saving the optimal solution
+        #
+        with open(opath.join(temp_dir, '%s.txt' % problemName), 'w') as f:
+            f.write('The optimal solution of problem %s\n' % problemName)
+            logContents = 'Summary\n'
+            logContents += '\t Cpu Time: %f\n' % eliCpuTime
+            logContents += '\t Wall Time: %f\n' % eliWallTime
+            logContents += '\t ObjV: %.3f\n' % BM.objVal
+            f.write(logContents)
+            f.write('\n')
+            f.write('Time slot scheduling\n')
+            for d in D:
+                f.write('\t D%d: TS [%02d, %02d]; \t WT %.2f\n' % (d, s_d[d].x, e_d[d].x, w_d[d].x))
+            f.write('\n')
+            f.write('Vehicle routing\n')
+            for v in V:
+                demand = []
+                for d in D:
+                    if y_vd[v, d].x > 0.5:
+                        demand.append(d)
+                _route = {}
+                for h in H:
+                    for d1 in Ds:
+                        for d2 in Ds:
+                            if x_hvdd[h, v, d1, d2].x > 0.5:
+                                _route[d1] = d2
+                route = [n0, _route[n0]]
+                while route[-1] != n0:
+                    route.append(_route[route[-1]])
+                f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
+                f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_d[d].x) for d in route[1:-1]]))
+        #
+        # Write a pickle file recording inputs and the optimal solution
         #
         subInputs = [D, k_i, l_d, H]
         dvs = [g_jd, s_d, e_d, z_hd]
@@ -184,13 +191,13 @@ def run(inputs, is_pkl=False):
             _w_d[d] = w_d[d].x
         _epi_W = epi_W.x
         sols = [_g_jd, _s_d, _e_d, _z_hd, _y_vd, _x_hvdd, _a_d, _w_d, _epi_W]
-        with open('is_%s.pkl' % problemName, 'wb') as fp:
+        with open(opath.join(temp_dir, 'is_%s.pkl' % problemName), 'wb') as fp:
             pickle.dump([inputs, sols], fp)
 
 
 if __name__ == '__main__':
     from problems import s0, s1, s2
 
-    run(s0(), is_pkl=True)
-    run(s1(), is_pkl=True)
-    run(s2(), is_pkl=True)
+    run(s0(), writing_files=True)
+    run(s1(), writing_files=True)
+    run(s2(), writing_files=True)
