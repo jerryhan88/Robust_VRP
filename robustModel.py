@@ -145,8 +145,8 @@ def run(inputs, writing_files=False):
         _y_uvd = {(u, v, d): y_uvd[u, v, d].x for u in U for v in V for d in D}
         _x_uhvdd = {(u, h, v, d1, d2): x_uhvdd[u, h, v, d1, d2].x
                    for u in U for v in V for h in H for d1 in Ds for d2 in Ds}
-        _a_ud = {(u, d): a_ud[u, d] for u in U for d in D}
-        _w_ud = {(u, d): w_ud[u, d] for u in U for d in D}
+        _a_ud = {(u, d): a_ud[u, d].x for u in U for d in D}
+        _w_ud = {(u, d): w_ud[u, d].x for u in U for d in D}
         _epi_W = epi_W.x
         sols = [_g_jd, _s_d, _e_d, _z_hd, _y_uvd, _x_uhvdd, _a_ud, _w_ud, _epi_W]
         with open(opath.join(temp_dir, 'is_%s.pkl' % problemName), 'wb') as fp:
@@ -154,5 +154,6 @@ def run(inputs, writing_files=False):
 
 
 if __name__ == '__main__':
-    from problems import ms_ex0
-    run(ms_ex0(), writing_files=True)
+    from problems import ms_ex0, ms_ex1
+    # run(ms_ex0(), writing_files=True)
+    run(ms_ex1(), writing_files=True)
