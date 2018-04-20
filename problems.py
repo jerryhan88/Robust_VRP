@@ -73,7 +73,7 @@ def s2():
 
 
 def ms_ex0():
-    problemName = 's1s2s3'
+    problemName = 's0s1s2'
     nV, nH, nN, nD, nU = 3, 12, 5, 10, 3
     assert nN <= nD
     #

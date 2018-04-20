@@ -33,10 +33,23 @@ def run(inputs, writing_files=False):
     subInputs = (D, k_i, l_d, Di, H, N, c_i, T_i, M1)
     dvsSchedule = g_jd, s_d, e_d, z_hd
     set_ctsScheduleDM(RM, subInputs, dvsSchedule)
-    for u in U:
-        for d in D:
-            RM.addConstr(quicksum(z_hd[h, d] for h in H) >= p_ud[u][d], name='processingT[%d,%d]' % (u, d))
-            RM.addConstr(s_d[d] + (p_ud[u][d] - 1) <= e_d[d], name='seTS_proT[%d,%d]' % (u, d))
+
+    p_d = []
+    for d in D:
+        max_p = -1e400
+        for u in U:
+            if max_p < p_ud[u][d]:
+                max_p = p_ud[u][d]
+        assert -1e400 < max_p
+        p_d.append(max_p)
+    for d in D:
+        RM.addConstr(quicksum(z_hd[h, d] for h in H) == p_d[d], name='processingT[%d]' % d)
+        RM.addConstr(s_d[d] + (p_d[d] - 1) == e_d[d], name='seTS_proT[%d]' % d)
+
+    # for u in U:
+    #     for d in D:
+    #         RM.addConstr(quicksum(z_hd[h, d] for h in H) >= p_ud[u][d], name='processingT[%d,%d]' % (u, d))
+    #         RM.addConstr(s_d[d] + (p_ud[u][d] - 1) <= e_d[d], name='seTS_proT[%d,%d]' % (u, d))
     #
     # Define constraints related to vehicle routing
     #
