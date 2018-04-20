@@ -13,6 +13,7 @@ def set_dvsSchedule(modelName, subInputs):
         for j in k_i[l_d[d]]:
             g_jd[j, d] = MM.addVar(vtype=GRB.BINARY, name='g[%d,%d]' % (j, d))
         s_d[d] = MM.addVar(vtype=GRB.INTEGER, name='s[%d]' % d)
+        e_d[d] = MM.addVar(vtype=GRB.INTEGER, name='e[%d]' % d)
     for h in H:
         for d in D:
             z_hd[h, d] = MM.addVar(vtype=GRB.BINARY, name='z[%d,%d]' % (h, d))
