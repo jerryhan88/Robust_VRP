@@ -45,11 +45,6 @@ def run(inputs, writing_files=False):
     for d in D:
         RM.addConstr(quicksum(z_hd[h, d] for h in H) == p_d[d], name='processingT[%d]' % d)
         RM.addConstr(s_d[d] + (p_d[d] - 1) == e_d[d], name='seTS_proT[%d]' % d)
-
-    # for u in U:
-    #     for d in D:
-    #         RM.addConstr(quicksum(z_hd[h, d] for h in H) >= p_ud[u][d], name='processingT[%d,%d]' % (u, d))
-    #         RM.addConstr(s_d[d] + (p_ud[u][d] - 1) <= e_d[d], name='seTS_proT[%d,%d]' % (u, d))
     #
     # Define constraints related to vehicle routing
     #
@@ -168,5 +163,5 @@ def run(inputs, writing_files=False):
 
 if __name__ == '__main__':
     from problems import ms_ex0, ms_ex1
-    # run(ms_ex0(), writing_files=True)
-    run(ms_ex1(), writing_files=True)
+    run(ms_ex0(), writing_files=True)
+    # run(ms_ex1(), writing_files=True)
