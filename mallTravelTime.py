@@ -32,7 +32,7 @@ def run():
             writer = csv.writer(w_csvfile, lineterminator='\n')
             new_header = [
                 'fromMall', 'toMall', 'duration',
-                'year', 'month', 'day', 'dow', 'hour']
+                'year', 'month', 'day', 'dow', 'hour', 'minutes']
             writer.writerow(new_header)
     #
     googleKey = 'AIzaSyAQYLeLHyJvNVC7uIbHmnvf7x9XC6murmk'
@@ -50,7 +50,7 @@ def run():
                 with open(ofpath, 'a') as w_csvfile:
                     writer = csv.writer(w_csvfile, lineterminator='\n')
                     writer.writerow([mn0, mn1, dur,
-                                     dt.year, dt.month, dt.day, dt.weekday(), dt.hour])
+                                     dt.year, dt.month, dt.day, dt.weekday(), dt.hour, dt.minute])
         #
         time.sleep(MIN30)
 
