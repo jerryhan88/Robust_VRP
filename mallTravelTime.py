@@ -26,7 +26,7 @@ def run():
                 lat, lon = map(float, [row[cn] for cn in ['latitude', 'longitude']])
                 malls[name] = (lat, lon)
 
-    ofpath = reduce(opath.join, [opath.expanduser('~'), 'Dropbox', 'Data', 'mallTravelTime_googleMaps.csv'])
+    ofpath = reduce(opath.join, [opath.expanduser('~'), 'Dropbox', 'Data', '_mallTravelTime_googleMaps.csv'])
     if not opath.exists(ofpath):
         with open(ofpath, 'w') as w_csvfile:
             writer = csv.writer(w_csvfile, lineterminator='\n')
