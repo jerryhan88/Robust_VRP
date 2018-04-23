@@ -201,4 +201,4 @@ if __name__ == '__main__':
 
     run(s0(), writing_files=True)
     run(s1(), writing_files=True)
-    run(s2(), writing_files=True)
+    # run(s2(), writing_files=True)

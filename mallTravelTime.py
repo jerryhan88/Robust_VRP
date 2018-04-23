@@ -10,7 +10,7 @@ import googlemaps
 from init_project import dpath
 
 TARGET_MALLS = ['IMM', 'Tampines Mall', '313']
-MIN30 = 30 * 60
+MIN20 = 20 * 60
 
 get_loc_dt = lambda loc: datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(tz.gettz(loc))
 
@@ -44,7 +44,7 @@ def run():
                 if mn0 == mn1:
                     continue
                 res = gmaps.distance_matrix((lat0, lon0),
-                                                        (lat1, lon1), mode="driving")
+                                                        (lat1, lon1), mode="driving", departure_time=dt)
                 elements = res['rows'][0]['elements']
                 dur = elements[0]['duration']['value']
                 with open(ofpath, 'a') as w_csvfile:
@@ -52,7 +52,7 @@ def run():
                     writer.writerow([mn0, mn1, dur,
                                      dt.year, dt.month, dt.day, dt.weekday(), dt.hour, dt.minute])
         #
-        time.sleep(MIN30)
+        time.sleep(MIN20)
 
 
 if __name__ == '__main__':
