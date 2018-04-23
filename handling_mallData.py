@@ -1,8 +1,11 @@
-import pickle
+import os.path as opath
 from geopy.distance import VincentyDistance
 from shapely.geometry import Polygon, Point
+import csv
+import pickle
 #
-from init_project import *
+from init_project import ZONE_UNIT_KM
+from init_project import dpath
 #
 NORTH, EAST, SOUTH, WEST = 0, 90, 180, 270
 

@@ -1,10 +1,8 @@
-from os.path import expanduser
 import os.path as opath
 import sys, logging
 import os
-import csv
 #
-TAXI_HOME = opath.join(opath.join(expanduser("~"), '..'), 'taxi')
+TAXI_HOME = opath.join(opath.join(opath.expanduser("~"), '..'), 'taxi')
 ZONE_UNIT_KM = 0.1
 #
 dpath = {}

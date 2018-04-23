@@ -5,7 +5,6 @@ import webbrowser
 from handling_mallData import get_malls
 
 
-ifpath = 'mall-data.csv'
 html_fpath = 'viz_mallLocations.html'
 
 #
