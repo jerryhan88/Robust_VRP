@@ -9,7 +9,8 @@ import googlemaps
 #
 from init_project import dpath
 
-TARGET_MALLS = ['IMM', 'Tampines Mall', '313']
+TARGET_MALLS = ['IMM', 'Tampines Mall', '313',
+                'Bukit Panjang Plaza', 'Tiong Bahru Plaza', 'Payer Laber Quarter']
 MIN15 = 15 * 60
 
 get_loc_dt = lambda loc: datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(tz.gettz(loc))

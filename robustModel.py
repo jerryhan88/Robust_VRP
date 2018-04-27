@@ -13,9 +13,9 @@ def run(inputs, writing_files=False):
     #
     RM, g_jd, s_d, e_d, z_hd = set_dvsSchedule('RM', (D, k_i, l_d, H))
     #
-    y_uvd = {(u, v, d): RM.addVar(vtype=GRB.BINARY, name='y[%d,%d,%d]' % (u, v, d))
+    y_uvd = {(u, v, d): RM.addVar(vtype=GRB.BINARY, name='yLen[%d,%d,%d]' % (u, v, d))
              for u in U for v in V for d in D}
-    x_uhvdd = {(u, h, v, d1, d2): RM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%d,%d,%d]' % (u, h, v, d1, d2))
+    x_uhvdd = {(u, h, v, d1, d2): RM.addVar(vtype=GRB.BINARY, name='xLen[%d,%d,%d,%d,%d]' % (u, h, v, d1, d2))
                for u in U for h in H for v in V for d1 in Ds for d2 in Ds}
     a_ud = {(u, d): RM.addVar(vtype=GRB.CONTINUOUS, name='a[%d,%d]' % (u, d))
             for u in U for d in D}

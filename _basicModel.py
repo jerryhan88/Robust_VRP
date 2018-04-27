@@ -69,10 +69,9 @@ def run(inputs, writing_files=False):
             for v in V for d in D}
     x_hvdd = {(h, v, d1, d2): BM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%d,%d]' % (h, v, d1, d2))
               for v in V for h in H for d1 in Ds for d2 in Ds}
-    # o_d, a_d, w_d = {}, {}, {}
-    a_d, w_d = {}, {}
+    o_d, a_d, w_d = {}, {}, {}
     for d in D:
-        # o_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='o[%d]' % d)
+        o_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='o[%d]' % d)
         a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
         w_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
     W1 = BM.addVar(vtype=GRB.CONTINUOUS, name='W1')
@@ -102,22 +101,42 @@ def run(inputs, writing_files=False):
                          name='OF_ASG[%d,%d]' % (v, d1))
             BM.addConstr(quicksum(x_hvdd[h, v, d2, d1] for h in H for d2 in Ds) == y_vd[v, d1],
                          name='IF_ASG[%d,%d]' % (v, d1))
-    for d1 in D:
-        BM.addConstr(a_d[d1] <= cT * s_d[d1], name='beforeST[%d]' % d1)
+    for d in D:
+        BM.addConstr(o_d[d] <= cT * s_d[d], name='beforeST[%d]' % d)
+    for v in V:
         for h in H:
-            BM.addConstr(t_hij[h][n0][l_d[d1]] <= a_d[d1] + M2 * (1 - quicksum(x_hvdd[h, v, n0, d1] for v in V)),
-                         name='AT_LB1[%d,%d]' % (h, d1))
-            BM.addConstr(a_d[d1] <= t_hij[h][n0][l_d[d1]] + M2 * (1 - quicksum(x_hvdd[h, v, n0, d1] for v in V)),
-                         name='AT_UB1[%d,%d]' % (h, d1))
-            for d2 in D:
-                BM.addConstr(cT * (s_d[d1] + p_d[d1]) + t_hij[h][l_d[d1]][l_d[d2]] \
-                             <= a_d[d2] + M2 * (1 - quicksum(x_hvdd[h, v, d1, d2] for v in V)),
-                             name='AT_LB2[%d,%d,%d]' % (h, d1, d2))
-                BM.addConstr(a_d[d2] \
-                             <= cT * h + t_hij[h][l_d[d1]][l_d[d2]] + M2 * (1 - quicksum(x_hvdd[h, v, d1, d2] for v in V)),
-                             name='AT_UB2[%d,%d,%d]' % (h, d1, d2))
-            BM.addConstr(h <= s_d[d1] + p_d[d1] + M1 * (1 - quicksum(x_hvdd[h, v, d1, d2] for v in V for d2 in D)),
-                         name='inTS[%d,%d]' % (h, d1))
+            for d in D:
+                BM.addConstr(cT * s_d[d] - t_hij[h][n0][l_d[d]] <= w_d[d] + M2 * (1 - x_hvdd[h, v, n0, d]),
+                             name='calWT1[%d,%d,%d]' % (h, v, d))
+                BM.addConstr(t_hij[h][n0][l_d[d]] + w_d[d] <= o_d[d] + M2 * (1 - x_hvdd[h, v, n0, d]),
+                             name='subEli1[%d,%d,%d]' % (h, v, d))
+
+
+                # BM.addConstr(t_hij[h][n0][l_d[d]] <= a_d[d] + M2 * (1 - x_hvdd[h, v, n0, d]),
+                #              name='subEli1[%d,%d,%d]' % (h, v, d))
+            for d1 in D:
+                for d2 in D:
+                    BM.addConstr(cT * (s_d[d2] - (s_d[d1] + p_d[d1])) - t_hij[h][l_d[d1]][l_d[d2]] \
+                                 <= w_d[d2] + M2 * (1 - x_hvdd[h, v, d1, d2]),
+                                 name='calWT2[%d,%d,%d,%d]' % (h, v, d1, d2))
+                    BM.addConstr(cT * (s_d[d1] + p_d[d1]) + t_hij[h][l_d[d1]][l_d[d2]] + w_d[d2] \
+                                 <= o_d[d2] + M2 * (1 - x_hvdd[h, v, d1, d2]),
+                                 name='subEli2[%d,%d,%d,%d]' % (h, v, d1, d2))
+
+
+                    # BM.addConstr(cT * (s_d[d1] + p_d[d1]) + t_hij[h][l_d[d1]][l_d[d2]]  \
+                    #              <= a_d[d2] + M2 * (1 - x_hvdd[h, v, d1, d2]),
+                    #              name='subEli2[%d,%d,%d,%d]' % (h, v, d1, d2))
+
+
+                    # BM.addConstr(cT * h + t_hij[h][l_d[d1]][l_d[d2]] + M2 * (1 - x_hvdd[h, v, d1, d2])\
+                    #              >= a_d[d2],
+                    #              name='temp[%d,%d,%d,%d]' % (h, v, d1, d2))
+
+                    BM.addConstr(cT * h \
+                                 <= a_d[d2] + M2 * (1 - x_hvdd[h, v, d1, d2]),
+                                 name='temp2[%d,%d,%d,%d]' % (h, v, d1, d2))
+
     for d in D:
         BM.addConstr(cT * s_d[d] - w_d[d] == a_d[d], name='calAT[%d]' % d)
     #
@@ -193,14 +212,13 @@ def run(inputs, writing_files=False):
                   for v in V for h in H for d1 in Ds for d2 in Ds}
         _o_d, _a_d, _w_d = {}, {}, {}
         for d in D:
-            # _o_d[d] = o_d[d].x
+            _o_d[d] = o_d[d].x
             _a_d[d] = a_d[d].x
             _w_d[d] = w_d[d].x
         _W1 = W1.x
         sols = {'s_d': _s_d, 'e_d': _e_d, 'z_hd': _z_hd,
                 'y_vd': _y_vd, 'x_hvdd': _x_hvdd,
-                # 'o_d': _o_d,
-                'a_d': _a_d, 'w_d': _w_d,
+                'o_d': _o_d, 'a_d': _a_d, 'w_d': _w_d,
                 'W1': _W1}
         with open(opath.join(temp_dir, 'is_%s.pkl' % problemName), 'wb') as fp:
             pickle.dump([inputs, sols], fp)
