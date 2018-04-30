@@ -83,7 +83,7 @@ def get_duration_googleAPI(googleKey, malls):
 
 def summary_dayTrip():
     df = pd.read_csv(TT_CSV)
-    df['timeslot'] = df.apply(lambda row: row['hour'] * (MIN60SEC / MIN15SEC) + int(row['minute'] / MIN15), axis=1)
+    df['timeslot'] = df.apply(lambda row: row['hour'] * N_TS_HOUR + int(row['minute'] / MIN15), axis=1)
     df['timeslot'] = df['timeslot'].astype(int)
     df['Date'] = df.apply(lambda row: date(row['year'], row['month'], row['day']), axis=1)
     dates = sorted(list(set(df['Date'])))
@@ -96,7 +96,6 @@ def summary_dayTrip():
 
 
 if __name__ == '__main__':
-    # dataCollection()
-    # dataCollection2()
-    summary_dayTrip()
+    dataCollection()
+    # summary_dayTrip()
 
