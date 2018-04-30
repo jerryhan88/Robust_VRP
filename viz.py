@@ -32,7 +32,7 @@ colors = {
     'yellow': "#ffff00"
 }
 
-pallet = [v for k, v in colors.items() if k != 'black']
+pallet = [v for k, v in colors.items() if k != 'black' and not k.startswith('dark')and not k.startswith('light') and k != 'cyan']
 
 fontSize = 20
 default_font = QFont('Decorative', fontSize)
@@ -205,12 +205,19 @@ class Viz(QWidget):
             self.drawCanvas(qp)
             qp.end()
 
+        # dev = self.image
+        # qp = QPainter()
+        # qp.begin(dev)
+        # self.drawCanvas(qp)
+        # qp.end()
+
     def save_img(self):
         self.image.save('%s.png' % self.problemName, 'png')
 
     def drawCanvas(self, qp):
         qp.setFont(default_font)
-        qp.drawText(hMargin, vMargin, 200, fontSize * 1.5, Qt.AlignLeft, 'Scenario %s' % self.problemName)
+        label = 'Scenario %s' % self.problemName
+        qp.drawText(hMargin, vMargin, len(label) * 15, fontSize * 1.5, Qt.AlignLeft, 'Scenario %s' % self.problemName)
         #
         pen = QPen(Qt.black, 1, Qt.SolidLine)
         qp.setPen(pen)
@@ -250,9 +257,20 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         fpath = sys.argv[1]
     else:
-        fpath = opath.join('_temp', 'is_es0_avg.pkl')
+        fpath = opath.join('_temp', 'is_scenario-20180424.pkl')
         # fpath = opath.join('_temp', 'is_s1.pkl')
+
     app = QApplication(sys.argv)
     ex = Viz(fpath)
     ex.save_img()
     sys.exit(app.exec_())
+
+    # apps = []
+    # for i in range(4, 9):
+    #     fpath = opath.join('_temp', 'is_%s.pkl' % 'scenario-2018042%d' % i)
+    #     app = QApplication(sys.argv)
+    #     ex = Viz(fpath)
+    #     ex.save_img()
+    #     apps.append(app)
+    # for app in apps:
+    #     sys.exit(app.exec_())

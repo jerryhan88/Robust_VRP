@@ -69,13 +69,13 @@ def run(inputs, writing_files=False):
             for v in V for d in D}
     x_hvdd = {(h, v, d1, d2): BM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%d,%d]' % (h, v, d1, d2))
               for v in V for h in H for d1 in Ds for d2 in Ds}
-    # o_d, a_d, w_d = {}, {}, {}
     a_d, w_d = {}, {}
     for d in D:
         # o_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='o[%d]' % d)
         a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
         w_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
     W1 = BM.addVar(vtype=GRB.CONTINUOUS, name='W1')
+
     BM.update()
     #
     # Define constraints related to time slot scheduling
@@ -135,7 +135,6 @@ def run(inputs, writing_files=False):
     BM.setParam('Threads', NUM_CORES)
     BM.optimize()
     #
-    BM.write('%s.lp' % problemName)
     if BM.status == GRB.Status.INFEASIBLE:
         BM.write('%s.lp' % problemName)
         BM.computeIIS()
@@ -193,13 +192,11 @@ def run(inputs, writing_files=False):
                   for v in V for h in H for d1 in Ds for d2 in Ds}
         _o_d, _a_d, _w_d = {}, {}, {}
         for d in D:
-            # _o_d[d] = o_d[d].x
             _a_d[d] = a_d[d].x
             _w_d[d] = w_d[d].x
         _W1 = W1.x
         sols = {'s_d': _s_d, 'e_d': _e_d, 'z_hd': _z_hd,
                 'y_vd': _y_vd, 'x_hvdd': _x_hvdd,
-                # 'o_d': _o_d,
                 'a_d': _a_d, 'w_d': _w_d,
                 'W1': _W1}
         with open(opath.join(temp_dir, 'is_%s.pkl' % problemName), 'wb') as fp:
@@ -207,9 +204,19 @@ def run(inputs, writing_files=False):
 
 
 if __name__ == '__main__':
-    from problems import s0, s1, s2, es0
+    from problems import s0, s1, s2, es0, scenario_loader
 
     # run(s0(), writing_files=True)
     # run(s1(), writing_files=True)
     # run(s2(), writing_files=True)
-    run(es0(), writing_files=True)
+    # run(es0(), writing_files=True)
+
+    fn = '_%s.pkl' % 'scenario-%s' % '20180424'
+    run(scenario_loader(fn), writing_files=True)
+
+
+    # target_dates = ['20180424', '20180425', '20180426', '20180427', '20180428']
+    # for _date in target_dates:
+    #     fn = '_%s.pkl' % 'scenario-%s' % _date
+    #     run(scenario_loader(fn), writing_files=True)
+
