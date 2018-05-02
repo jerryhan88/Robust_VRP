@@ -1,8 +1,14 @@
+import os.path as opath
+import os
 import multiprocessing
 import time
+import csv, pickle
 from gurobipy import *
-
+#
+from problems import scenario_loader
+#
 NUM_CORES = multiprocessing.cpu_count()
+OBJ1, OBJ2, OBJ3, OBJ4, OBJ5, OBJ6 = range(1, 7)
 
 
 def set_dvsSchedule(modelName, subInputs):
@@ -52,7 +58,7 @@ def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
             MM.addConstr(quicksum(z_hd[h, d] for d in Di[i]) <= c_i[i], name='nodeCap[%d,%d]' % (h, i))
 
 
-def run(inputs, writing_files=False):
+def run(inputs, targetOBj, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     #
     problemName = inputs['problemName']
@@ -71,11 +77,17 @@ def run(inputs, writing_files=False):
               for v in V for h in H for d1 in Ds for d2 in Ds}
     a_d, w_d = {}, {}
     for d in D:
-        # o_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='o[%d]' % d)
         a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
         w_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
+    o_v = {v: BM.addVar(vtype=GRB.CONTINUOUS, name='o[%d]' % v) for v in V}
+    c_v = {v: BM.addVar(vtype=GRB.CONTINUOUS, name='c[%d]' % v) for v in V}
+    #
     W1 = BM.addVar(vtype=GRB.CONTINUOUS, name='W1')
-
+    W2 = BM.addVar(vtype=GRB.CONTINUOUS, name='W2')
+    S = BM.addVar(vtype=GRB.CONTINUOUS, name='S')
+    WS1 = BM.addVar(vtype=GRB.CONTINUOUS, name='WS1')
+    WS2 = BM.addVar(vtype=GRB.CONTINUOUS, name='WS2')
+    J = BM.addVar(vtype=GRB.CONTINUOUS, name='J')
     BM.update()
     #
     # Define constraints related to time slot scheduling
@@ -105,10 +117,10 @@ def run(inputs, writing_files=False):
     for d1 in D:
         BM.addConstr(a_d[d1] <= cT * s_d[d1], name='beforeST[%d]' % d1)
         for h in H:
-            BM.addConstr(t_hij[h][n0][l_d[d1]] <= a_d[d1] + M2 * (1 - quicksum(x_hvdd[h, v, n0, d1] for v in V)),
-                         name='AT_LB1[%d,%d]' % (h, d1))
-            BM.addConstr(a_d[d1] <= t_hij[h][n0][l_d[d1]] + M2 * (1 - quicksum(x_hvdd[h, v, n0, d1] for v in V)),
-                         name='AT_UB1[%d,%d]' % (h, d1))
+            # BM.addConstr(0 <= a_d[d1] + M2 * (1 - quicksum(x_hvdd[h, v, n0, d1] for v in V)),
+            #              name='AT_LB1[%d,%d]' % (h, d1))
+            BM.addConstr(w_d[d1] <= 0 + M2 * (1 - quicksum(x_hvdd[h, v, n0, d1] for v in V)),
+                         name='zeroWT[%d,%d]' % (h, d1))
             for d2 in D:
                 BM.addConstr(cT * (s_d[d1] + p_d[d1]) + t_hij[h][l_d[d1]][l_d[d2]] \
                              <= a_d[d2] + M2 * (1 - quicksum(x_hvdd[h, v, d1, d2] for v in V)),
@@ -121,18 +133,50 @@ def run(inputs, writing_files=False):
     for d in D:
         BM.addConstr(cT * s_d[d] - w_d[d] == a_d[d], name='calAT[%d]' % d)
     #
-    # Maximum waiting time (epigraph function)
+    for v in V:
+        for d in D:
+            BM.addConstr(o_v[v] <= a_d[d] + M2 * (1 - y_vd[v, d]), name='vsUB[%d,%d]' % (v, d))
+            BM.addConstr(cT * (s_d[d] + p_d[d]) <= c_v[v] + M2 * (1 - y_vd[v, d]), name='veLB[%d,%d]' % (v, d))
     #
+    # Objectives calculation
+    #
+    #  # OBJ 1
     for d in D:
-        BM.addConstr(w_d[d] <= W1)
+        BM.addConstr(w_d[d] <= W1, name='W1[%d]' % d)
+    #  # OBJ 2
+    for v in V:
+        BM.addConstr(c_v[v] - o_v[v] <= J, name='J[%d]' % v)
+    #  # OBJ 3
+    BM.addConstr(quicksum(w_d[d] for d in D) == W2, name='W2')
+    #  # OBJ 4
+    BM.addConstr(quicksum(t_hij[h][l_d[d1]][l_d[d2]] * x_hvdd[h, v, d1, d2]
+                          for v in V for h in H for d1 in D for d2 in D) == S, name='S')
+    #  # OBJ 5
+    BM.addConstr(W1 + S == WS1, name='WS1')
+    #  # OBJ 6
+    BM.addConstr(W2 + S == WS2, name='WS2')
     #
     # Set objective
     #
     obj = LinExpr()
-    obj += W1
+    if targetOBj == OBJ1:
+        obj += W1
+    elif targetOBj == OBJ2:
+        obj += J
+    elif targetOBj == OBJ3:
+        obj += W2
+    elif targetOBj == OBJ4:
+        obj += S
+    elif targetOBj == OBJ5:
+        obj += WS1
+    else:
+        assert targetOBj == OBJ6
+        obj += WS2
     BM.setObjective(obj, GRB.MINIMIZE)
     #
     BM.setParam('Threads', NUM_CORES)
+    if etc['logFile']:
+        BM.setParam('LogFile', etc['logFile'])
     BM.optimize()
     #
     if BM.status == GRB.Status.INFEASIBLE:
@@ -140,19 +184,17 @@ def run(inputs, writing_files=False):
         BM.computeIIS()
         BM.write('%s.ilp' % problemName)
     #
-    if writing_files:
-        import os.path as opath
-        import os
-        import pickle
-        temp_dir = '_temp'
-        if not opath.exists(temp_dir):
-            os.mkdir(temp_dir)
+    if etc:
+        assert 'inputFile' in etc
+        assert 'solFilePKL' in etc
+        assert 'solFileCSV' in etc
+        assert 'solFileTXT' in etc
         #
         # Write a text file saving the optimal solution
         #
         endCpuTime, endWallTime = time.clock(), time.time()
         eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        with open(opath.join(temp_dir, '%s.txt' % problemName), 'w') as f:
+        with open(etc['solFileTXT'], 'w') as f:
             f.write('The optimal solution of problem %s\n' % problemName)
             logContents = 'Summary\n'
             logContents += '\t Cpu Time: %f\n' % eliCpuTime
@@ -182,7 +224,19 @@ def run(inputs, writing_files=False):
                 f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
                 f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % a_d[d].x for d in route[1:-1]]))
         #
-        # Write a pickle file recording inputs and the optimal solution
+        # Write a csv file
+        #
+        with open(etc['solFileCSV'], 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            header = ['objV', 'eliCpuTime', 'eliWallTime']
+            writer.writerow(header)
+            writer.writerow([BM.objVal, eliCpuTime, eliWallTime])
+        #
+        # Write pickle files recording inputs and the optimal solution
+        #
+        if not opath.exists(etc['inputFile']):
+            with open(etc['inputFile'], 'wb') as fp:
+                pickle.dump(inputs, fp)
         #
         subInputs = [D, l_d, H]
         dvs = [s_d, e_d, z_hd]
@@ -190,33 +244,69 @@ def run(inputs, writing_files=False):
         _y_vd = {(v, d): y_vd[v, d].x for v in V for d in D}
         _x_hvdd = {(h, v, d1, d2): x_hvdd[h, v, d1, d2].x
                   for v in V for h in H for d1 in Ds for d2 in Ds}
-        _o_d, _a_d, _w_d = {}, {}, {}
+        _a_d, _w_d = {}, {}
         for d in D:
             _a_d[d] = a_d[d].x
             _w_d[d] = w_d[d].x
-        _W1 = W1.x
-        sols = {'s_d': _s_d, 'e_d': _e_d, 'z_hd': _z_hd,
+        _o_v, _c_v = {}, {}
+        for v in V:
+            _o_v[v] = o_v[v].x
+            _c_v[v] = c_v[v].x
+        _W1, _J, _W2, _S, _WS1, _WS2 = [dv.x for dv in [W1, J, W2, S, WS1, WS2]]
+        sol = {'s_d': _s_d, 'e_d': _e_d, 'z_hd': _z_hd,
+                #
                 'y_vd': _y_vd, 'x_hvdd': _x_hvdd,
                 'a_d': _a_d, 'w_d': _w_d,
-                'W1': _W1}
-        with open(opath.join(temp_dir, 'is_%s.pkl' % problemName), 'wb') as fp:
-            pickle.dump([inputs, sols], fp)
+               '_o_v': _o_v,'_c_v': _c_v,
+                #
+                'W1': _W1, 'J': _J, 'W2': _W2, 'S': _S, 'WS1': _WS1, 'WS2': _WS2}
+        with open(etc['solFilePKL'], 'wb') as fp:
+            pickle.dump(sol, fp)
+
+
+def batch_run(target_dpath=None):
+    if target_dpath == None:
+        target_dpath = opath.join('_scenario', '_target')
+    exp_dpath = '_experiments'
+    if not opath.exists(exp_dpath):
+        os.mkdir(exp_dpath)
+    input_dpath = opath.join(exp_dpath, 'input')
+    sol_dpath = opath.join(exp_dpath, 'sol')
+    for dpath in [input_dpath, sol_dpath]:
+        if not opath.exists(dpath):
+            os.mkdir(dpath)
+    #
+    for fn in os.listdir(target_dpath):
+        if not fn.endswith('.pkl'):
+            continue
+        target_exp_dpath = opath.join(target_dpath, '_experiments')
+        os.mkdir(target_exp_dpath)
+        #
+        prefix = fn[:-len('.pkl')]
+        ifpath = opath.join(target_dpath, fn)
+        input_dpath = opath.join(target_exp_dpath, 'input')
+        sol_dpath = opath.join(target_exp_dpath, 'sol')
+        log_dpath = opath.join(target_exp_dpath, 'log')
+        for dpath in [input_dpath, sol_dpath, log_dpath]:
+            os.mkdir(dpath)
+        etc = {'inputFile': opath.join(input_dpath, 'input-%s.pkl' % prefix)}
+        for targetObj in [OBJ1, OBJ2, OBJ3, OBJ4, OBJ5, OBJ6]:
+            # if targetObj != OBJ1: continue
+            if targetObj in [OBJ4, OBJ5, OBJ6]: continue
+            # if targetObj in [OBJ1, OBJ2, OBJ3]: continue
+            etc['solFilePKL'] = opath.join(sol_dpath, 'sol-%s-obj%d.pkl' % (prefix, targetObj))
+            etc['solFileCSV'] = opath.join(sol_dpath, 'sol-%s-obj%d.csv' % (prefix, targetObj))
+            etc['solFileTXT'] = opath.join(sol_dpath, 'sol-%s-obj%d.txt' % (prefix, targetObj))
+            etc['logFile'] = opath.join(log_dpath, 'log-%s-obj%d.txt' % (prefix, targetObj))
+            run(scenario_loader(ifpath), targetObj, etc)
 
 
 if __name__ == '__main__':
-    from problems import s0, s1, s2, es0, scenario_loader
+    from problems import s0, s1, s2
 
     # run(s0(), writing_files=True)
     # run(s1(), writing_files=True)
     # run(s2(), writing_files=True)
     # run(es0(), writing_files=True)
 
-    fn = '_%s.pkl' % 'scenario-%s' % '20180424'
-    run(scenario_loader(fn), writing_files=True)
-
-
-    # target_dates = ['20180424', '20180425', '20180426', '20180427', '20180428']
-    # for _date in target_dates:
-    #     fn = '_%s.pkl' % 'scenario-%s' % _date
-    #     run(scenario_loader(fn), writing_files=True)
-
+    batch_run()

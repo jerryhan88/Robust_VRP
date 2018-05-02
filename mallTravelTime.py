@@ -11,16 +11,21 @@ import googlemaps
 #
 from init_project import dpath
 
-TARGET_MALLS = ['IMM', 'Tampines Mall', '313',
-                'Bukit Panjang Plaza', 'Tiong Bahru Plaza', 'Payer Laber Quarter']
-TARGET_HOURS = list(range(7, 12))
+TARGET_MALLS = ['IMM', 'Bukit Panjang Plaza', 'Tiong Bahru Plaza',
+                '313', 'Payer Laber Quarter', 'Tampines Mall']
+TARGET_MALLS_ABB = ['IMM', 'Bukit', 'Tiong',
+                    '313', 'Payer', 'Tamp']
 
 
-MIN60SEC = 60 * 60
-MIN15SEC = 15 * 60
-MIN15 = 15
+# TARGET_HOURS = list(range(7, 11))
+TARGET_HOURS = list(range(7, 10))
+MIN60, MIN30, MIN15 = 60, 30, 15
+MIN60SEC, MIN30SEC, MIN15SEC = MIN60 * 60, MIN30 * 60, MIN15 * 60
 N_TS_HOUR = int(MIN60SEC / MIN15SEC)
+# N_TS_HOUR = int(MIN60SEC / MIN30SEC)
+
 TT_CSV = reduce(opath.join, [opath.expanduser('~'), 'Dropbox', 'Data', '_mallTravelTime_googleMaps.csv'])
+
 sce_dpath = '_scenario'
 if not opath.exists(sce_dpath):
     os.mkdir(sce_dpath)
@@ -82,20 +87,27 @@ def get_duration_googleAPI(googleKey, malls):
 
 
 def summary_dayTrip():
+    TT_CSV = reduce(opath.join, [opath.expanduser('~'), 'Dropbox', 'Data', '_mallTravelTime_googleMaps0.csv'])
+    #
     df = pd.read_csv(TT_CSV)
+    df['durM'] = df.apply(lambda row: row['duration'] / MIN60, axis=1)
     df['timeslot'] = df.apply(lambda row: row['hour'] * N_TS_HOUR + int(row['minute'] / MIN15), axis=1)
+    # df['timeslot'] = df.apply(lambda row: row['hour'] * N_TS_HOUR + int(row['minute'] / MIN30), axis=1)
     df['timeslot'] = df['timeslot'].astype(int)
     df['Date'] = df.apply(lambda row: date(row['year'], row['month'], row['day']), axis=1)
     dates = sorted(list(set(df['Date'])))
+    raw_dpath = opath.join(sce_dpath, 'raw')
+    if not opath.exists(raw_dpath):
+        os.mkdir(raw_dpath)
     for _date in dates:
-        fpath = opath.join(sce_dpath, 'mTT-%d%02d%02d.csv' % (_date.year, _date.month, _date.day))
-        if opath.exists(fpath):
-            continue
+        fpath = opath.join(raw_dpath, 'mTT-%d%02d%02d.csv' % (_date.year, _date.month, _date.day))
+        # if opath.exists(fpath):
+        #     continue
         day_df = df[(df['Date'] == _date)]
         day_df.to_csv(fpath, index=False)
 
 
 if __name__ == '__main__':
-    dataCollection()
-    # summary_dayTrip()
+    # dataCollection()
+    summary_dayTrip()
 

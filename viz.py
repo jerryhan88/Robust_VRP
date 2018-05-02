@@ -1,17 +1,15 @@
 import os.path as opath
 import sys
 import pickle
-
+from functools import reduce
+#
 from PyQt5.QtWidgets import QWidget, QApplication
 from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QImage, QPainterPath
 from PyQt5.QtCore import Qt, QPoint, QSize
-
-
-# colors = [QColor(255, 0, 0),
-#           QColor(50, 55, 100),
-#           QColor(0, 0, 255),
-#           QColor(171, 121, 66),
-#           QColor(148, 32, 146)]
+#
+from mallTravelTime import TARGET_MALLS_ABB, TARGET_HOURS
+from mallTravelTime import N_TS_HOUR, MIN15
+MIN_HOUR = TARGET_HOURS[0]
 
 
 colors = {
@@ -35,18 +33,19 @@ colors = {
 pallet = [v for k, v in colors.items() if k != 'black' and not k.startswith('dark')and not k.startswith('light') and k != 'cyan']
 
 fontSize = 20
+fontSize2 = 18
 default_font = QFont('Decorative', fontSize)
 
 
 mainFrameOrigin = (100, 150)
 hMargin, vMargin = 10, 10
 xUnit, yUnit = 100, 50
-coX, coY = (hMargin * 4, vMargin * 4)
+coX, coY = (hMargin * 8, vMargin * 4)
 
 
 class Node(object):
     def __init__(self, nid, scheduleInputs, drawingInputs):
-        self.nid = nid
+        self.nid = TARGET_MALLS_ABB[nid]
         self.numTS, self.capa = scheduleInputs
         self.oriX, self.oriY, self.xLen = drawingInputs
         self.tsSchedule = [[None] * self.numTS for _ in range(self.capa)]
@@ -72,9 +71,8 @@ class Node(object):
                 break
 
     def draw(self, qp):
-        txt = 'n%d' % self.nid
-        qp.drawText(self.oriX - hMargin * 3, self.oriY,
-                    len(txt) * 15, self.capa * yUnit, Qt.AlignVCenter, txt)
+        qp.drawText(self.oriX - hMargin * 6.5, self.oriY,
+                    len(self.nid) * 15, self.capa * yUnit, Qt.AlignVCenter, self.nid)
 
         qp.drawLine(self.oriX, self.oriY, self.oriX + self.xLen, self.oriY)
         for i in range(self.capa):
@@ -117,20 +115,20 @@ class Vehicle(object):
         for i, did in enumerate(self.route):
             curX, curY = self.routePos[did]
             if i == 0:
-                qp.drawText(curX - xUnit / 3, curY - yUnit / 2,
-                            len(self.vLabel) * 15, fontSize * 1.5, Qt.AlignCenter, self.vLabel)
+                qp.drawText(curX - len(self.vLabel) * 15, curY - yUnit / 3,
+                            len(self.vLabel) * 15, fontSize2 * 1.5, Qt.AlignCenter, self.vLabel)
             else:
                 qp.drawLine(lastX, lastY, curX, curY)
-            lastX = curX + (self.demands[did].w_d + self.demands[did].p_d)  * xUnit
+            lastX = curX + (self.demands[did].w_d + self.demands[did].p_d) * xUnit
             lastY = curY
             qp.drawLine(curX, curY, lastX, lastY)
 
 
 class Viz(QWidget):
-    def __init__(self, fpath):
+    def __init__(self, input_prefix, sol_prefix):
         super().__init__()
         #
-        inputs, sols = load_input_sol(fpath)
+        inputs = load_input(input_prefix)
         self.problemName = inputs['problemName']
         H, N, c_i = [inputs.get(k) for k in ['H', 'N', 'c_i']]
         #
@@ -148,7 +146,8 @@ class Viz(QWidget):
         w, h = coX + self.xLen + hMargin * 2, coY + self.yLen + vMargin * 4
         self.canvasSize = (w, h)
         #
-        self.inter_sols(inputs, sols)
+        sol = load_sol(sol_prefix)
+        self.inter_sols(inputs, sol)
         #
         self.image = QImage(w, h, QImage.Format_RGB32)
         self.path = QPainterPath()
@@ -182,7 +181,7 @@ class Viz(QWidget):
             self.vehicles.append(Vehicle(v, route[1:-1]))
 
         for d in D:
-            demand = Demand(d, d2v[d], int(s_d[d]), int(e_d[d]), int(p_d[d]), a_d[d] / cT, w_d[d] / cT)
+            demand = Demand(d, d2v[d], int(round(s_d[d])), int(round(e_d[d])), int(p_d[d]), a_d[d] / cT, w_d[d] / cT)
             self.nodes[l_d[d]].schedule_demand(demand, self.vehicles[d2v[d]])
 
 
@@ -234,8 +233,10 @@ class Viz(QWidget):
         for ts in range(self.numTS):
             xPos = coX + ts * xUnit
             qp.drawLine(xPos, coY, xPos, coY + self.yLen)
+            label = '%02d:%02d' % (MIN_HOUR + int(ts / N_TS_HOUR), (ts % N_TS_HOUR) * MIN15)
             qp.drawText(xPos, coY + self.yLen + vMargin,
-                        xUnit, fontSize * 1.5, Qt.AlignCenter, '%d' % ts)
+                        xUnit, fontSize * 1.5, Qt.AlignCenter,
+                        label)
 
         for v in self.vehicles:
             v.draw(qp)
@@ -246,22 +247,37 @@ class Viz(QWidget):
             n.draw(qp)
 
 
-
-
-def load_input_sol(fpath):
+def load_input(prefix):
+    fpath = reduce(opath.join, ['_experiments', 'input', 'input-%s.pkl' % prefix])
     with open(fpath, 'rb') as fp:
-        inputs, sols = pickle.load(fp)
-    return inputs, sols
+        inputs = pickle.load(fp)
+    return inputs
+
+
+def load_sol(prefix):
+    fpath = reduce(opath.join, ['_experiments', 'sol', 'sol-%s.pkl' % prefix])
+    with open(fpath, 'rb') as fp:
+        sols = pickle.load(fp)
+    return sols
+
+
+def temp():
+    input_prefix = 's_mean0711-nd012-nv006'
+    sol_prefix = '%s-obj2' % input_prefix
+    inputs = load_input(input_prefix)
+    sols = load_sol(sol_prefix)
+
+    print()
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2:
-        fpath = sys.argv[1]
-    else:
-        fpath = opath.join('_temp', 'is_scenario-20180424.pkl')
-        # fpath = opath.join('_temp', 'is_s1.pkl')
+
+    input_prefix = 's_mean0711-nd012-nv006'
+    sol_prefix = '%s-obj2' % input_prefix
+
+    # temp()
 
     app = QApplication(sys.argv)
-    ex = Viz(fpath)
+    ex = Viz(input_prefix, sol_prefix)
     ex.save_img()
     sys.exit(app.exec_())
 
