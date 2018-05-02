@@ -19,7 +19,7 @@ def gen_scenario():
     target_dates = ['20180507', '20180508', '20180509', '20180510', '20180511']
     #
     def get_base_scenario():
-        nV, nH, nN, nD = 4, len(TARGET_HOURS) * N_TS_HOUR, len(TARGET_MALLS), 10
+        nV, nH, nN, nD = 23, len(TARGET_HOURS) * N_TS_HOUR, len(TARGET_MALLS), 40
         assert nN <= nD
         assert (nD / nN) < nV
         #
@@ -39,6 +39,7 @@ def gen_scenario():
         Di = [[d for d in D if l_d[d] == i] for i in N]
         #
         p_d = [randint(MIN_ST, MAX_ST) for _ in range(nD)]
+        # p_d = [1 for _ in range(nD)]
         while (nH * nN * CAPA2) * 0.8 < sum(p_d):
             p_d = [randint(MIN_ST, MAX_ST) for _ in range(nD)]
         #
