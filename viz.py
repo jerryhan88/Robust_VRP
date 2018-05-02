@@ -270,9 +270,8 @@ def temp():
     print()
 
 if __name__ == '__main__':
-
-    input_prefix = 's_mean0711-nd012-nv006'
-    sol_prefix = '%s-obj2' % input_prefix
+    input_prefix = 's_mean0711-nd021-nv012'
+    sol_prefix = '%s-obj1' % input_prefix
 
     # temp()
 
