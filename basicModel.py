@@ -291,8 +291,8 @@ def batch_run(target_dpath=None):
             os.mkdir(dpath)
         etc = {'inputFile': opath.join(input_dpath, 'input-%s.pkl' % prefix)}
         for targetObj in [OBJ1, OBJ2, OBJ3, OBJ4, OBJ5, OBJ6]:
-            # if targetObj != OBJ1: continue
-            if targetObj in [OBJ4, OBJ5, OBJ6]: continue
+            if targetObj not in [OBJ1, OBJ2]: continue
+            # if targetObj in [OBJ4, OBJ5, OBJ6]: continue
             # if targetObj in [OBJ1, OBJ2, OBJ3]: continue
             etc['solFilePKL'] = opath.join(sol_dpath, 'sol-%s-obj%d.pkl' % (prefix, targetObj))
             etc['solFileCSV'] = opath.join(sol_dpath, 'sol-%s-obj%d.csv' % (prefix, targetObj))
