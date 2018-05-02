@@ -1,50 +1,48 @@
+import os.path as opath
 import multiprocessing
 import time
+import csv, pickle
 from gurobipy import *
+#
+from problems import scenario_loader
 from basicModel import set_dvsSchedule, set_ctsScheduleDM, get_dvsScheduleVal
+
 
 NUM_CORES = multiprocessing.cpu_count()
 
 
-def run(inputs, writing_files=False):
+def run(scenario, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
-    assert len(inputs) == 19
-    problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2 = inputs
     #
-    RM, g_jd, s_d, e_d, z_hd = set_dvsSchedule('RM', (D, k_i, l_d, H))
+    problemName = scenario['problemName']
+    n0, V, H, cT = [scenario.get(k) for k in ['n0', 'V', 'H', 'cT']]
+    N, Ns, c_i = [scenario.get(k) for k in ['N', 'Ns', 'c_i']]
+    D, Ds, l_d, Di = [scenario.get(k) for k in ['D', 'Ds', 'l_d', 'Di']]
+    U, p_sd, t_uhij = [scenario.get(k) for k in ['U', 'p_sd', 't_uhij']]
+    M1, M2 = [scenario.get(k) for k in ['M1', 'M2']]
     #
-    y_uvd = {(u, v, d): RM.addVar(vtype=GRB.BINARY, name='yLen[%d,%d,%d]' % (u, v, d))
+    subInputs = (D, H)
+    RM, s_d, e_d, z_hd = set_dvsSchedule('RM', subInputs)
+    #
+    y_uvd = {(u, v, d): RM.addVar(vtype=GRB.BINARY, name='y[%d,%d,%d]' % (u, v, d))
              for u in U for v in V for d in D}
-    x_uhvdd = {(u, h, v, d1, d2): RM.addVar(vtype=GRB.BINARY, name='xLen[%d,%d,%d,%d,%d]' % (u, h, v, d1, d2))
+    x_uhvdd = {(u, h, v, d1, d2): RM.addVar(vtype=GRB.BINARY, name='x[%d,%d,%d,%d,%d]' % (u, h, v, d1, d2))
                for u in U for h in H for v in V for d1 in Ds for d2 in Ds}
     a_ud = {(u, d): RM.addVar(vtype=GRB.CONTINUOUS, name='a[%d,%d]' % (u, d))
             for u in U for d in D}
     w_ud = {(u, d): RM.addVar(vtype=GRB.CONTINUOUS, name='w[%d,%d]' % (u, d))
             for u in U for d in D}
-    epi_W = RM.addVar(vtype=GRB.CONTINUOUS, name='epi_W')
+    W1 = RM.addVar(vtype=GRB.CONTINUOUS, name='W1')
     RM.update()
-    #
-    obj = LinExpr()
-    obj += epi_W
-    RM.setObjective(obj, GRB.MINIMIZE)
     #
     # Define constraints related to time slot scheduling
     #
-    subInputs = (D, k_i, l_d, Di, H, N, c_i, T_i, M1)
-    dvsSchedule = g_jd, s_d, e_d, z_hd
+    subInputs = (H, N, c_i, D, l_d, Di, M1)
+    dvsSchedule = (s_d, e_d, z_hd)
     set_ctsScheduleDM(RM, subInputs, dvsSchedule)
-
-    p_d = []
     for d in D:
-        max_p = -1e400
-        for u in U:
-            if max_p < p_ud[u][d]:
-                max_p = p_ud[u][d]
-        assert -1e400 < max_p
-        p_d.append(max_p)
-    for d in D:
-        RM.addConstr(quicksum(z_hd[h, d] for h in H) == p_d[d], name='processingT[%d]' % d)
-        RM.addConstr(s_d[d] + (p_d[d] - 1) == e_d[d], name='seTS_proT[%d]' % d)
+        RM.addConstr(quicksum(z_hd[h, d] for h in H) == p_sd[d], name='processingT[%d]' % d)
+        RM.addConstr(s_d[d] + (p_sd[d] - 1) == e_d[d], name='seTS_proT[%d]' % d)
     #
     # Define constraints related to vehicle routing
     #
@@ -53,7 +51,8 @@ def run(inputs, writing_files=False):
             RM.addConstr(quicksum(y_uvd[u, v, d] for v in V) == 1, name='d2v[%d,%d]' % (u, d))
         for v in V:
             for i in N:
-                RM.addConstr(quicksum(y_uvd[u, v, d] for d in Di[i]) <= 1, name='xSameLoc[%d,%d,%d]' % (u, v, i))
+                RM.addConstr(quicksum(y_uvd[u, v, d] for d in Di[i]) <= 1,
+                             name='xSameLoc[%d,%d,%d]' % (u, v, i))
         for v in V:
             RM.addConstr(quicksum(x_uhvdd[u, h, v, n0, d] for h in H for d in Ds) == 1,
                          name='DpoFlowO[%d,%d]' % (u, v))
@@ -64,34 +63,37 @@ def run(inputs, writing_files=False):
                              name='OF_ASG[%d,%d,%d]' % (u, v, d1))
                 RM.addConstr(quicksum(x_uhvdd[u, h, v, d2, d1] for h in H for d2 in Ds) == y_uvd[u, v, d1],
                              name='IF_ASG[%d,%d,%d]' % (u, v, d1))
-        for d in D:
-            RM.addConstr(0 <= a_ud[u, d], name='initAT1[%d,%d]' % (u, d))
-            RM.addConstr(a_ud[u, d] <= M2, name='initAT2[%d,%d]' % (u, d))
-            RM.addConstr(a_ud[u, d] <= cT * s_d[d], name='beforeST[%d,%d]' % (u, d))
-        for v in V:
+        for d1 in D:
+            RM.addConstr(a_ud[u, d1] <= cT * s_d[d1], name='beforeST[%d,%d]' % (u, d1))
             for h in H:
-                for d in D:
-                    RM.addConstr(cT * s_d[d] - t_uhij[u][h][n0][l_d[d]] <= w_ud[u, d] + M2 * (1 - x_uhvdd[u, h, v, n0, d]),
-                                 name='calWT1[%d,%d,%d,%d]' % (u, h, v, d))
-                    RM.addConstr(t_uhij[u][h][n0][l_d[d]] + w_ud[u, d] <= a_ud[u, d] + M2 * (1 - x_uhvdd[u, h, v, n0, d]),
-                                 name='calAT1[%d,%d,%d,%d]' % (u, h, v, d))
-                for d1 in D:
-                    for d2 in D:
-                        RM.addConstr(cT * (s_d[d2] - (s_d[d1] + p_ud[u][d1])) - t_uhij[u][h][l_d[d1]][l_d[d2]] \
-                                     <= w_ud[u, d2] + M2 * (1 - x_uhvdd[u, h, v, d1, d2]),
-                                     name='calWT2[%d,%d,%d,%d]' % (h, v, d1, d2))
-                        RM.addConstr(cT * (s_d[d1] + p_ud[u][d1]) + t_uhij[u][h][l_d[d1]][l_d[d2]] + w_ud[u, d2] \
-                                     <= a_ud[u, d2] + M2 * (1 - x_uhvdd[u, h, v, d1, d2]),
-                                     name='calAT2[%d,%d,%d,%d,%d]' % (u, h, v, d1, d2))
+                RM.addConstr(w_ud[u, d1] <= 0 + M2 * (1 - quicksum(x_uhvdd[u, h, v, n0, d1] for v in V)),
+                             name='zeroWT[%d,%d,%d]' % (u, h, d1))
+                for d2 in D:
+                    RM.addConstr(cT * (s_d[d1] + p_sd[d1]) + t_uhij[u][h][l_d[d1]][l_d[d2]] \
+                                 <= a_ud[u, d2] + M2 * (1 - quicksum(x_uhvdd[u, h, v, d1, d2] for v in V)),
+                                 name='AT_LB2[%d,%d,%d,%d]' % (u, h, d1, d2))
+                    RM.addConstr(a_ud[u, d2] \
+                                 <= cT * h + t_uhij[u][h][l_d[d1]][l_d[d2]] + M2 * (
+                                             1 - quicksum(x_uhvdd[u, h, v, d1, d2] for v in V)),
+                                 name='AT_UB2[%d,%d,%d,%d]' % (u, h, d1, d2))
+                RM.addConstr(h <= s_d[d1] + p_sd[d1] + M1 * (1 - quicksum(x_uhvdd[u, h, v, d1, d2] for v in V for d2 in D)),
+                             name='inTS[%d,%d,%d]' % (u, h, d1))
+        for d in D:
+            RM.addConstr(cT * s_d[d] - w_ud[u, d] == a_ud[u, d], name='calAT[%d,%d]' % (u, d))
     #
     # Maximum waiting time (epigraph function)
     #
     for u in U:
         for d in D:
-            RM.addConstr(w_ud[u, d] <= epi_W)
-
+            RM.addConstr(w_ud[u, d] <= W1)
+    #
+    obj = LinExpr()
+    obj += W1
+    RM.setObjective(obj, GRB.MINIMIZE)
     #
     RM.setParam('Threads', NUM_CORES)
+    if etc['logFile']:
+        RM.setParam('LogFile', etc['logFile'])
     RM.optimize()
     #
     if RM.status == GRB.Status.INFEASIBLE:
@@ -100,19 +102,17 @@ def run(inputs, writing_files=False):
         RM.write('%s.ilp' % problemName)
 
     #
-    if writing_files:
-        import os.path as opath
-        import os
-        import pickle
-        temp_dir = '_temp'
-        if not opath.exists(temp_dir):
-            os.mkdir(temp_dir)
+    if etc:
+        assert 'inputFile' in etc
+        assert 'solFilePKL' in etc
+        assert 'solFileCSV' in etc
+        assert 'solFileTXT' in etc
         #
         # Write a text file saving the optimal solution
         #
         endCpuTime, endWallTime = time.clock(), time.time()
         eliCpuTime, eliWallTime = endCpuTime - startCpuTime, endWallTime - startWallTime
-        with open(opath.join(temp_dir, '%s.txt' % problemName), 'w') as f:
+        with open(etc['solFileTXT'], 'w') as f:
             f.write('The optimal solution of problem %s\n' % problemName)
             logContents = 'Summary\n'
             logContents += '\t Cpu Time: %f\n' % eliCpuTime
@@ -145,23 +145,81 @@ def run(inputs, writing_files=False):
                     f.write('\t V%d: %s (%s);\n' % (v, str(demand), '->'.join(map(str, route))))
                     f.write('\t\t\t\t\t (%s)\n' % '-'.join(['%.2f' % (cT * s_d[d].x - w_ud[u, d].x) for d in route[1:-1]]))
         #
-        # Write a pickle file recording inputs and the optimal solution
+        # Write a csv file
         #
-        subInputs = [D, k_i, l_d, H]
-        dvs = [g_jd, s_d, e_d, z_hd]
-        _g_jd, _s_d, _e_d, _z_hd = get_dvsScheduleVal(subInputs, dvs)
+        with open(etc['solFileCSV'], 'wt') as w_csvfile:
+            writer = csv.writer(w_csvfile, lineterminator='\n')
+            header = ['objV', 'eliCpuTime', 'eliWallTime']
+            writer.writerow(header)
+            writer.writerow([RM.objVal, eliCpuTime, eliWallTime])
+        #
+        # Write pickle files recording scenario and the optimal solution
+        #
+        with open(etc['inputFile'], 'wb') as fp:
+            pickle.dump(scenario, fp)
+        #
+        #
+        # Write a pickle file recording scenario and the optimal solution
+        #
+        subInputs = [D, l_d, H]
+        dvs = [s_d, e_d, z_hd]
+        _s_d, _e_d, _z_hd = get_dvsScheduleVal(subInputs, dvs)
         _y_uvd = {(u, v, d): y_uvd[u, v, d].x for u in U for v in V for d in D}
         _x_uhvdd = {(u, h, v, d1, d2): x_uhvdd[u, h, v, d1, d2].x
                    for u in U for v in V for h in H for d1 in Ds for d2 in Ds}
         _a_ud = {(u, d): a_ud[u, d].x for u in U for d in D}
         _w_ud = {(u, d): w_ud[u, d].x for u in U for d in D}
-        _epi_W = epi_W.x
-        sols = [_g_jd, _s_d, _e_d, _z_hd, _y_uvd, _x_uhvdd, _a_ud, _w_ud, _epi_W]
-        with open(opath.join(temp_dir, 'is_%s.pkl' % problemName), 'wb') as fp:
-            pickle.dump([inputs, sols], fp)
+        _W1 = W1.x
+        #
+        sol = {'s_d': _s_d, 'e_d': _e_d, 'z_hd': _z_hd,
+               #
+               'y_uvd': _y_uvd, 'x_uhvdd': _x_uhvdd,
+               'a_ud': _a_ud, 'w_ud': _w_ud,
+               #
+               'W1': _W1}
+        with open(etc['solFilePKL'], 'wb') as fp:
+            pickle.dump(sol, fp)
+
+
+def batch_run(target_dpath=None):
+    if target_dpath == None:
+        target_dpath = opath.join('_scenario', '_target')
+    exp_dpath = '_experiments'
+    if not opath.exists(exp_dpath):
+        os.mkdir(exp_dpath)
+    input_dpath = opath.join(exp_dpath, 'input')
+    sol_dpath = opath.join(exp_dpath, 'sol')
+    for dpath in [input_dpath, sol_dpath]:
+        if not opath.exists(dpath):
+            os.mkdir(dpath)
+    for fn in os.listdir(target_dpath):
+        if not fn.endswith('.pkl'):
+            continue
+        if 'rb' not in fn: continue
+        target_exp_dpath = opath.join(target_dpath, '_experiments')
+        if not opath.exists(target_exp_dpath):
+            os.mkdir(target_exp_dpath)
+        #
+        prefix = fn[:-len('.pkl')]
+        ifpath = opath.join(target_dpath, fn)
+        input_dpath = opath.join(target_exp_dpath, 'input')
+        sol_dpath = opath.join(target_exp_dpath, 'sol')
+        log_dpath = opath.join(target_exp_dpath, 'log')
+        for dpath in [input_dpath, sol_dpath, log_dpath]:
+            if not opath.exists(dpath):
+                os.mkdir(dpath)
+        etc = {'inputFile': opath.join(input_dpath, 'input-%s.pkl' % prefix)}
+        etc['solFilePKL'] = opath.join(sol_dpath, 'sol-%s.pkl' % prefix)
+        etc['solFileCSV'] = opath.join(sol_dpath, 'sol-%s.csv' % prefix)
+        etc['solFileTXT'] = opath.join(sol_dpath, 'sol-%s.txt' % prefix)
+        etc['logFile'] = opath.join(log_dpath, 'log-%s.txt' % prefix)
+        run(scenario_loader(ifpath), etc)
+
 
 
 if __name__ == '__main__':
-    from problems import ms_ex0, ms_ex1
-    run(ms_ex0(), writing_files=True)
+    # from problems import ms_ex0, ms_ex1
+    # run(ms_ex0(), writing_files=True)
     # run(ms_ex1(), writing_files=True)
+
+    batch_run()

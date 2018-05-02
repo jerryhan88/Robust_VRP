@@ -1,4 +1,5 @@
 import os.path as opath
+import os
 import pandas as pd
 import pickle
 from random import seed, randint
@@ -19,7 +20,7 @@ def gen_scenario():
     target_dates = ['20180507', '20180508', '20180509', '20180510', '20180511']
     #
     def get_base_scenario():
-        nV, nH, nN, nD = 23, len(TARGET_HOURS) * N_TS_HOUR, len(TARGET_MALLS), 40
+        nV, nH, nN, nD = 8, len(TARGET_HOURS) * N_TS_HOUR, len(TARGET_MALLS), 15
         assert nN <= nD
         assert (nD / nN) < nV
         #
@@ -86,7 +87,7 @@ def gen_scenario():
         #
         problemName = 's_%s' % _date
         ofpath = opath.join(sce_dpath, '%s-%s.pkl' % (problemName, postfix))
-        inputs = {'problemName': problemName,
+        scenario = {'problemName': problemName,
                 'n0': n0, 'V': V, 'H': H, 'cT': cT,
                 'N': N, 'Ns': Ns, 'c_i': c_i,
                 'D': D, 'Ds': Ds, 'l_d': l_d, 'Di': Di,
@@ -94,7 +95,7 @@ def gen_scenario():
                 'M1': M1, 'M2': M2
                 }
         with open(ofpath, 'wb') as fp:
-            pickle.dump(inputs, fp)
+            pickle.dump(scenario, fp)
     first_day, last_day = 1e400, -1e400
     for dt_str in set(all_df['Date']):
         day = int(dt_str.split('-')[2])
@@ -111,7 +112,7 @@ def gen_scenario():
         #
         problemName = 's_%s%02d%02d' % (strategy, first_day, last_day)
         ofpath = opath.join(sce_dpath, '%s-%s.pkl' % (problemName, postfix))
-        inputs = {'problemName': problemName,
+        scenario = {'problemName': problemName,
                   'n0': n0, 'V': V, 'H': H, 'cT': cT,
                   'N': N, 'Ns': Ns, 'c_i': c_i,
                   'D': D, 'Ds': Ds, 'l_d': l_d, 'Di': Di,
@@ -119,13 +120,13 @@ def gen_scenario():
                   'M1': M1, 'M2': M2
                   }
         with open(ofpath, 'wb') as fp:
-            pickle.dump(inputs, fp)
+            pickle.dump(scenario, fp)
 
 
 def scenario_loader(fpath):
     with open(fpath, 'rb') as fp:
-        inputs = pickle.load(fp)
-    return inputs
+        scenario = pickle.load(fp)
+    return scenario
 
 
 def gen_t_hij(H, Ns, nN, uT):
@@ -224,6 +225,56 @@ def s2(retType='dict'):
         return problemName, n0, V, H, cT, N, Ns, c_i, D, Ds, l_d, Di, p_d, t_hij, M1, M2
 
 
+def gen_rbProblem(postfix):
+    candi_scenarios = []
+    for fn in (os.listdir(sce_dpath)):
+        if not fn.endswith('%s.pkl' % postfix): continue
+        if 'opti' in fn: continue
+        if 'mean' in fn: continue
+        if 'pess' in fn: continue
+        if 'rb' in fn: continue
+        fpath = opath.join(sce_dpath, fn)
+        scenario = scenario_loader(fpath)
+        candi_scenarios.append((fn, scenario))
+    #
+    rb_scenarios = {}
+    sns, p_sd, t_uhij = [], [], []
+    for fn, scenario in candi_scenarios:
+        sn, _, _ = fn[:-len('.pkl')].split('-')
+        sns.append(sn)
+        if not rb_scenarios:
+            for k in ['n0', 'V', 'H', 'cT',
+                         'N', 'Ns', 'c_i',
+                         'D', 'Ds', 'l_d', 'Di',
+                         'M1', 'M2']:
+                rb_scenarios[k] = scenario[k]
+        p_d, t_hij = [scenario.get(k) for k in ['p_d', 't_hij']]
+        if not p_sd:
+            p_sd = p_d[:]
+        else:
+            for i in range(len(p_sd)):
+                if p_sd[i] < p_d[i]:
+                    p_sd[i] = p_d[i]
+        t_uhij.append(t_hij)
+    rb_scenarios['U'] = list(range(len(sns)))
+    rb_scenarios['p_sd'] = p_sd
+    rb_scenarios['t_uhij'] = t_uhij
+    #
+    first_day, last_day = 1e400, -1e400
+    for sn in sns:
+        day = int(sn[len('s_yyyymm'):])
+        if day < first_day:
+            first_day = day
+        if day > last_day:
+            last_day = day
+    problemName = 's_rb%02d%02d' % (first_day, last_day)
+    rb_scenarios['problemName'] = problemName
+    #
+    ofpath = opath.join(sce_dpath, '%s-%s.pkl' % (problemName, postfix))
+    with open(ofpath, 'wb') as fp:
+        pickle.dump(rb_scenarios, fp)
+
+
 # def ms_ex0():
 #     problemName = 's0s1s2'
 #     nV, nH, nN, nD, nU = 3, 12, 5, 10, 3
@@ -272,4 +323,6 @@ def s2(retType='dict'):
 if __name__ == '__main__':
     # s0()
 
-    gen_scenario()
+    # gen_scenario()
+    postfix = 'nd010-nv005'
+    gen_rbProblem(postfix)

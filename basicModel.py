@@ -1,5 +1,4 @@
 import os.path as opath
-import os
 import multiprocessing
 import time
 import csv, pickle
@@ -58,15 +57,15 @@ def set_ctsScheduleDM(MM, subInputs, dvsSchedule):
             MM.addConstr(quicksum(z_hd[h, d] for d in Di[i]) <= c_i[i], name='nodeCap[%d,%d]' % (h, i))
 
 
-def run(inputs, targetOBj, etc=None):
+def run(scenario, targetOBj, etc=None):
     startCpuTime, startWallTime = time.clock(), time.time()
     #
-    problemName = inputs['problemName']
-    n0, V, H, cT = [inputs.get(k) for k in ['n0', 'V', 'H', 'cT']]
-    N, Ns, c_i = [inputs.get(k) for k in ['N', 'Ns', 'c_i']]
-    D, Ds, l_d, Di = [inputs.get(k) for k in ['D', 'Ds', 'l_d', 'Di']]
-    p_d, t_hij = [inputs.get(k) for k in ['p_d', 't_hij']]
-    M1, M2 = [inputs.get(k) for k in ['M1', 'M2']]
+    problemName = scenario['problemName']
+    n0, V, H, cT = [scenario.get(k) for k in ['n0', 'V', 'H', 'cT']]
+    N, Ns, c_i = [scenario.get(k) for k in ['N', 'Ns', 'c_i']]
+    D, Ds, l_d, Di = [scenario.get(k) for k in ['D', 'Ds', 'l_d', 'Di']]
+    p_d, t_hij = [scenario.get(k) for k in ['p_d', 't_hij']]
+    M1, M2 = [scenario.get(k) for k in ['M1', 'M2']]
     #
     subInputs = (D, H)
     BM, s_d, e_d, z_hd = set_dvsSchedule('BM', subInputs)
@@ -232,11 +231,11 @@ def run(inputs, targetOBj, etc=None):
             writer.writerow(header)
             writer.writerow([BM.objVal, eliCpuTime, eliWallTime])
         #
-        # Write pickle files recording inputs and the optimal solution
+        # Write pickle files recording scenario and the optimal solution
         #
         if not opath.exists(etc['inputFile']):
             with open(etc['inputFile'], 'wb') as fp:
-                pickle.dump(inputs, fp)
+                pickle.dump(scenario, fp)
         #
         subInputs = [D, l_d, H]
         dvs = [s_d, e_d, z_hd]
@@ -279,8 +278,10 @@ def batch_run(target_dpath=None):
     for fn in os.listdir(target_dpath):
         if not fn.endswith('.pkl'):
             continue
+        if 'rb' in fn: continue
         target_exp_dpath = opath.join(target_dpath, '_experiments')
-        os.mkdir(target_exp_dpath)
+        if not opath.exists(target_exp_dpath):
+            os.mkdir(target_exp_dpath)
         #
         prefix = fn[:-len('.pkl')]
         ifpath = opath.join(target_dpath, fn)
@@ -288,7 +289,8 @@ def batch_run(target_dpath=None):
         sol_dpath = opath.join(target_exp_dpath, 'sol')
         log_dpath = opath.join(target_exp_dpath, 'log')
         for dpath in [input_dpath, sol_dpath, log_dpath]:
-            os.mkdir(dpath)
+            if not opath.exists(dpath):
+                os.mkdir(dpath)
         etc = {'inputFile': opath.join(input_dpath, 'input-%s.pkl' % prefix)}
         for targetObj in [OBJ1, OBJ2, OBJ3, OBJ4, OBJ5, OBJ6]:
             if targetObj not in [OBJ1]: continue
