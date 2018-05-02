@@ -114,14 +114,20 @@ class Vehicle(object):
         lastX, lastY = None, None
         for i, did in enumerate(self.route):
             curX, curY = self.routePos[did]
-            if i == 0:
-                qp.drawText(curX - len(self.vLabel) * 15, curY - yUnit / 3,
-                            len(self.vLabel) * 15, fontSize2 * 1.5, Qt.AlignCenter, self.vLabel)
-            else:
+            if i != 0:
                 qp.drawLine(lastX, lastY, curX, curY)
             lastX = curX + (self.demands[did].w_d + self.demands[did].p_d) * xUnit
             lastY = curY
             qp.drawLine(curX, curY, lastX, lastY)
+
+    def draw_label(self, qp):
+        pen = QPen(QColor(pallet[self.vid % len(pallet)]), 2.5, Qt.SolidLine)
+        qp.setPen(pen)
+        qp.setBrush(Qt.NoBrush)
+        curX, curY = self.routePos[self.route[0]]
+        qp.drawText(curX - len(self.vLabel) * 15, curY - yUnit / 3,
+                    len(self.vLabel) * 15, fontSize2 * 1.5, Qt.AlignCenter, self.vLabel)
+
 
 
 class Viz(QWidget):
@@ -245,6 +251,9 @@ class Viz(QWidget):
         qp.setPen(pen)
         for n in self.nodes:
             n.draw(qp)
+        for v in self.vehicles:
+            v.draw_label(qp)
+
 
 
 def load_input(prefix):
