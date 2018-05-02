@@ -79,15 +79,15 @@ def run(inputs, targetOBj, etc=None):
     for d in D:
         a_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='a[%d]' % d)
         w_d[d] = BM.addVar(vtype=GRB.CONTINUOUS, name='w[%d]' % d)
-    o_v = {v: BM.addVar(vtype=GRB.CONTINUOUS, name='o[%d]' % v) for v in V}
-    c_v = {v: BM.addVar(vtype=GRB.CONTINUOUS, name='c[%d]' % v) for v in V}
+    o1_v = {v: BM.addVar(vtype=GRB.CONTINUOUS, name='o1[%d]' % v) for v in V}
+    o2_v = {v: BM.addVar(vtype=GRB.CONTINUOUS, name='o2[%d]' % v) for v in V}
     #
     W1 = BM.addVar(vtype=GRB.CONTINUOUS, name='W1')
     W2 = BM.addVar(vtype=GRB.CONTINUOUS, name='W2')
     S = BM.addVar(vtype=GRB.CONTINUOUS, name='S')
     WS1 = BM.addVar(vtype=GRB.CONTINUOUS, name='WS1')
     WS2 = BM.addVar(vtype=GRB.CONTINUOUS, name='WS2')
-    J = BM.addVar(vtype=GRB.CONTINUOUS, name='J')
+    O = BM.addVar(vtype=GRB.CONTINUOUS, name='J')
     BM.update()
     #
     # Define constraints related to time slot scheduling
@@ -135,8 +135,8 @@ def run(inputs, targetOBj, etc=None):
     #
     for v in V:
         for d in D:
-            BM.addConstr(o_v[v] <= a_d[d] + M2 * (1 - y_vd[v, d]), name='vsUB[%d,%d]' % (v, d))
-            BM.addConstr(cT * (s_d[d] + p_d[d]) <= c_v[v] + M2 * (1 - y_vd[v, d]), name='veLB[%d,%d]' % (v, d))
+            BM.addConstr(o1_v[v] <= a_d[d] + M2 * (1 - y_vd[v, d]), name='oUB[%d,%d]' % (v, d))
+            BM.addConstr(cT * (s_d[d] + p_d[d]) <= o2_v[v] + M2 * (1 - y_vd[v, d]), name='oLB[%d,%d]' % (v, d))
     #
     # Objectives calculation
     #
@@ -145,7 +145,7 @@ def run(inputs, targetOBj, etc=None):
         BM.addConstr(w_d[d] <= W1, name='W1[%d]' % d)
     #  # OBJ 2
     for v in V:
-        BM.addConstr(c_v[v] - o_v[v] <= J, name='J[%d]' % v)
+        BM.addConstr(o2_v[v] - o1_v[v] <= O, name='O[%d]' % v)
     #  # OBJ 3
     BM.addConstr(quicksum(w_d[d] for d in D) == W2, name='W2')
     #  # OBJ 4
@@ -162,7 +162,7 @@ def run(inputs, targetOBj, etc=None):
     if targetOBj == OBJ1:
         obj += W1
     elif targetOBj == OBJ2:
-        obj += J
+        obj += O
     elif targetOBj == OBJ3:
         obj += W2
     elif targetOBj == OBJ4:
@@ -248,18 +248,18 @@ def run(inputs, targetOBj, etc=None):
         for d in D:
             _a_d[d] = a_d[d].x
             _w_d[d] = w_d[d].x
-        _o_v, _c_v = {}, {}
+        _o1_v, _o2_v = {}, {}
         for v in V:
-            _o_v[v] = o_v[v].x
-            _c_v[v] = c_v[v].x
-        _W1, _J, _W2, _S, _WS1, _WS2 = [dv.x for dv in [W1, J, W2, S, WS1, WS2]]
+            _o1_v[v] = o1_v[v].x
+            _o2_v[v] = o2_v[v].x
+        _W1, O, _W2, _S, _WS1, _WS2 = [dv.x for dv in [W1, O, W2, S, WS1, WS2]]
         sol = {'s_d': _s_d, 'e_d': _e_d, 'z_hd': _z_hd,
                 #
                 'y_vd': _y_vd, 'x_hvdd': _x_hvdd,
                 'a_d': _a_d, 'w_d': _w_d,
-               '_o_v': _o_v,'_c_v': _c_v,
+                'o1_v': _o1_v, 'o2_v': _o2_v,
                 #
-                'W1': _W1, 'J': _J, 'W2': _W2, 'S': _S, 'WS1': _WS1, 'WS2': _WS2}
+                'W1': _W1, 'O': O, 'W2': _W2, 'S': _S, 'WS1': _WS1, 'WS2': _WS2}
         with open(etc['solFilePKL'], 'wb') as fp:
             pickle.dump(sol, fp)
 
