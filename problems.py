@@ -19,7 +19,7 @@ def gen_scenario():
     target_dates = ['20180507', '20180508', '20180509', '20180510', '20180511']
     #
     def get_base_scenario():
-        nV, nH, nN, nD = 14, len(TARGET_HOURS) * N_TS_HOUR, len(TARGET_MALLS), 30
+        nV, nH, nN, nD = 4, len(TARGET_HOURS) * N_TS_HOUR, len(TARGET_MALLS), 10
         assert nN <= nD
         assert (nD / nN) < nV
         #

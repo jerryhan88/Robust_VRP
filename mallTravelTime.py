@@ -11,9 +11,9 @@ import googlemaps
 #
 from init_project import dpath
 
-TARGET_MALLS = ['IMM', 'Bukit Panjang Plaza', 'Tiong Bahru Plaza',
+TARGET_MALLS = ['IMM', 'Bukit Panjang Plaza', #'Tiong Bahru Plaza'
                 '313', 'Payer Laber Quarter', 'Tampines Mall']
-TARGET_MALLS_ABB = ['IMM', 'Bukit', 'Tiong',
+TARGET_MALLS_ABB = ['IMM', 'Bukit', #'Tiong'
                     '313', 'Payer', 'Tamp']
 
 
@@ -90,6 +90,8 @@ def summary_dayTrip():
     TT_CSV = reduce(opath.join, [opath.expanduser('~'), 'Dropbox', 'Data', '_mallTravelTime_googleMaps0.csv'])
     #
     df = pd.read_csv(TT_CSV)
+    df = df[df['fromMall'].isin(TARGET_MALLS)]
+    df = df[df['toMall'].isin(TARGET_MALLS)]
     df['durM'] = df.apply(lambda row: row['duration'] / MIN60, axis=1)
     df['timeslot'] = df.apply(lambda row: row['hour'] * N_TS_HOUR + int(row['minute'] / MIN15), axis=1)
     # df['timeslot'] = df.apply(lambda row: row['hour'] * N_TS_HOUR + int(row['minute'] / MIN30), axis=1)
