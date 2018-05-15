@@ -2,7 +2,7 @@ import os.path as opath
 import os
 import pandas as pd
 import pickle
-from random import seed, randint
+from random import seed, randint, uniform
 #
 from mallTravelTime import sce_dpath
 from mallTravelTime import TARGET_MALLS, TARGET_HOURS
@@ -275,54 +275,86 @@ def gen_rbProblem(postfix):
         pickle.dump(rb_scenarios, fp)
 
 
-# def ms_ex0():
-#     problemName = 's0s1s2'
-#     nV, nH, nN, nD, nU = 3, 12, 5, 10, 3
-#     assert nN <= nD
-#     #
-#     n0 = nD
-#     V = list(range(nV))
-#     H = list(range(nH))
-#     cT = 1
-#     #
-#     N = list(range(nN))
-#     Ns = list(range(n0 + 1))
-#     c_i = [1, 1, 1, 2, 2]
-#     k_i = list(map(range, [1, 1, 2, 2, 1]))
-#     T_i = [
-#             [(0, 5)],
-#             [(5, 11)],
-#             [(0, 2), (5, 8)],
-#             [(2, 5), (9, 11)],
-#             [(3, 10)],
-#           ]
-#     #
-#     D = list(range(nD))
-#     Ds = D + [n0]
-#     l_d = [0, 1, 2, 3, 4, 0, 3, 3, 4, 4]
-#     Di = [[d for d in D if l_d[d] == i] for i in N]
-#     #
-#     U = list(range(nU))
-#     p_ud = [[1, 1, 2, 2, 1, 2, 2, 3, 3, 4],
-#             [1, 1, 2, 2, 1, 2, 2, 3, 3, 4],
-#             [2, 3, 2, 1, 1, 1, 2, 2, 2, 2]]
-#     t_uhij = []
-#     for u in U:
-#         uT = 1.0 if u == 0 else 0.5
-#         t_hij = gen_t_hij(H, Ns, nN, uT)
-#         t_uhij.append(t_hij)
-#     #
-#     M1 = len(H)
-#     M2 = cT * len(H)
-#     #
-#     return problemName, n0, V, H, cT, N, Ns, c_i, k_i, T_i, D, Ds, l_d, Di, U, p_ud, t_uhij, M1, M2
+def gen_vrptwProblem(postfix, numScenarios=10):
+    strategies = ['opti', 'pess']
+    strategy_fpath = {}
+    durStr = None
+    for fn in (os.listdir(sce_dpath)):
+        if not fn.endswith('%s.pkl' % postfix): continue
+        for stg in strategies:
+            if stg in fn:
+                if durStr is None:
+                    durStr = fn[len('s_xxxx'):len('s_xxxx') + 4]
+                strategy_fpath[stg] = opath.join(sce_dpath, fn)
+    #
+    base_scenario = {}
+    strategy_t_hij = {}
+    for stg in strategy_fpath:
+        scenario = scenario_loader(strategy_fpath[stg])
+        if not base_scenario:
+            for k in ['n0', 'V', 'H', 'cT',
+                      'N', 'Ns', 'c_i',
+                      'D', 'Ds', 'l_d', 'Di',
+                      'M1', 'M2',
+                      'p_d']:
+                base_scenario[k] = scenario[k]
+        strategy_t_hij[stg] = scenario['t_hij']
+    #
+    exp_dpath = '_experiments'
+    sol_dpath = opath.join(exp_dpath, 'sol')
+    solPKL = {}
+    for stg in ['opti', 'pess', 'mean']:
+        solPKL_fpath = opath.join(sol_dpath, 'sol-s_%s%s-%s-obj1.pkl' % (stg, durStr, postfix))
+        with open(solPKL_fpath, 'rb') as fp:
+            sol = pickle.load(fp)
+        solPKL[stg] = sol
+    solPKL_fpath = opath.join(sol_dpath, 'sol-s_rb%s-%s.pkl' % (durStr, postfix))
+    with open(solPKL_fpath, 'rb') as fp:
+        sol = pickle.load(fp)
+    solPKL['rb'] = sol
+    stg_s_d = {}
+    for stg in solPKL:
+        stg_s_d[stg] =solPKL[stg]['s_d']
+    #
+    H, N, Ns = [base_scenario.get(k) for k in ['H', 'N', 'Ns']]
+    opti_t_hij, pess_t_hij = [strategy_t_hij.get(strategy) for strategy in strategies]
 
-
+    # print(durStr)
+    vrptw_dpath = '_vrptw_scenarios'
+    if not opath.exists(vrptw_dpath):
+        os.mkdir(vrptw_dpath)
+    for seedNum in range(numScenarios):
+        seed(seedNum)
+        t_hij = []
+        for h in H:
+            t_ij = []
+            for i in Ns:
+                t_j = [0 for _ in Ns]
+                for j in Ns:
+                    t_j[j] = uniform(opti_t_hij[h][i][j] * 0.95, pess_t_hij[h][i][j] * 1.05)
+                t_ij.append(t_j)
+            t_hij.append(t_ij)
+        for stg, s_d in stg_s_d.items():
+            vrptw_scenario = {}
+            for k in ['n0', 'V', 'H', 'cT',
+                      'N', 'Ns', 'c_i',
+                      'D', 'Ds', 'l_d', 'Di',
+                      'M1', 'M2',
+                      'p_d']:
+                vrptw_scenario[k] = base_scenario[k]
+            vrptw_scenario['t_hij'] = t_hij
+            vrptw_scenario['s_d'] = s_d
+            problemName = 's_vrptw%s-%s-%d' % (durStr, stg, seedNum)
+            vrptw_scenario['problemName'] = problemName
+            #
+            ofpath = opath.join(vrptw_dpath, '%s-%s.pkl' % (problemName, postfix))
+            with open(ofpath, 'wb') as fp:
+                pickle.dump(vrptw_scenario, fp)
 
 
 if __name__ == '__main__':
-    # s0()
-
+    postfix = 'nd015-nv008'
     # gen_scenario()
-    postfix = 'nd010-nv005'
-    gen_rbProblem(postfix)
+
+    # gen_rbProblem(postfix)
+    gen_vrptwProblem(postfix, 100)

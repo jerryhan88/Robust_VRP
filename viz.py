@@ -5,7 +5,7 @@ from functools import reduce
 #
 from PyQt5.QtWidgets import QWidget, QApplication
 from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QImage, QPainterPath
-from PyQt5.QtCore import Qt, QPoint, QSize
+from PyQt5.QtCore import Qt, QSize
 #
 from mallTravelTime import TARGET_MALLS_ABB, TARGET_HOURS
 from mallTravelTime import N_TS_HOUR, MIN15
@@ -32,6 +32,22 @@ colors = {
 
 pallet = [v for k, v in colors.items() if k != 'black' and not k.startswith('dark')and not k.startswith('light') and k != 'cyan']
 
+pallet = [
+        "#0000ff",  # blue
+        "#a52a2a",  # brown
+        "#ff00ff",  # magenta
+        "#008000",  # green
+        "#4b0082",  # indigo
+        "#f0e68c",  # khaki
+        "#800000",  # maroon
+        "#000080",  # navy
+        "#ffa500",  # orange
+        "#ffc0cb",  # pink
+        "#ff0000",  # red
+        "#808080",  # grey
+]
+
+
 fontSize = 20
 fontSize2 = 18
 default_font = QFont('Decorative', fontSize)
@@ -40,7 +56,8 @@ default_font = QFont('Decorative', fontSize)
 mainFrameOrigin = (100, 150)
 hMargin, vMargin = 10, 10
 xUnit, yUnit = 100, 50
-coX, coY = (hMargin * 8, vMargin * 4)
+# coX, coY = (hMargin * 8, vMargin * 4)
+coX, coY = (hMargin * 8, vMargin * 1)
 
 
 class Node(object):
@@ -51,7 +68,7 @@ class Node(object):
         self.tsSchedule = [[None] * self.numTS for _ in range(self.capa)]
         self.demands = []
 
-    def schedule_demand(self, demand, vehicle):
+    def schedule_demand(self, demand, vehicle=None):
         for j, aPlatSchedule in enumerate(self.tsSchedule):
             for occupyingDemand in aPlatSchedule[demand.s_d : demand.e_d + 1]:
                 if occupyingDemand is not None:
@@ -64,10 +81,11 @@ class Node(object):
                 demand.initPos(demandOriX, demandOriY)
                 self.demands.append(demand)
                 #
-                routeOriX = self.oriX + demand.a_d * xUnit
-                routeOriY = self.oriY + j * yUnit + yUnit / 2
-                vehicle.routePos[demand.did] = (routeOriX, routeOriY)
-                vehicle.demands[demand.did] = demand
+                if vehicle is not None:
+                    routeOriX = self.oriX + demand.a_d * xUnit
+                    routeOriY = self.oriY + j * yUnit + yUnit / 2
+                    vehicle.routePos[demand.did] = (routeOriX, routeOriY)
+                    vehicle.demands[demand.did] = demand
                 break
 
     def draw(self, qp):
@@ -84,17 +102,24 @@ class Node(object):
 
 
 class Demand(object):
-    def __init__(self, did, assigned_vid, s_d, e_d, p_d, a_d, w_d):
+    def __init__(self, did, assigned_vid, s_d, e_d, p_d, a_d=None, w_d=None):
         self.did = did
         self.assigned_vid = assigned_vid
-        self.s_d, self.e_d, self.p_d, self.a_d, self.w_d = s_d, e_d, p_d, a_d, w_d
+        self.s_d, self.e_d, self.p_d = s_d, e_d, p_d
+        if self.assigned_vid is not None:
+            self.a_d, self.w_d = a_d, w_d
         self.xLen = self.p_d * xUnit
 
     def initPos(self, oriX, oriY):
         self.oriX, self.oriY = oriX, oriY
 
     def draw(self, qp):
-        qp.setBrush(QColor(pallet[self.assigned_vid % len(pallet)]))
+        if self.assigned_vid is None:
+            clr = QColor(pallet[-1])
+        else:
+            clr = QColor(pallet[self.assigned_vid % len(pallet)])
+        clr.setAlphaF(0.5)
+        qp.setBrush(clr)
         qp.drawRect(self.oriX, self.oriY, self.xLen, yUnit)
         qp.drawText(self.oriX, self.oriY,
                     self.xLen, yUnit, Qt.AlignCenter, 'D%d' % self.did)
@@ -133,6 +158,7 @@ class Vehicle(object):
 class Viz(QWidget):
     def __init__(self, input_prefix, sol_prefix):
         super().__init__()
+        self.is_rb = 1 if 'rb' in input_prefix else 0
         #
         inputs = load_input(input_prefix)
         self.problemName = inputs['problemName']
@@ -163,32 +189,41 @@ class Viz(QWidget):
 
     def inter_sols(self, inputs, sols):
         n0, V, H, cT = [inputs.get(k) for k in ['n0', 'V', 'H', 'cT']]
-        D, Ds, l_d, p_d = [inputs.get(k) for k in ['D', 'Ds', 'l_d', 'p_d']]
-        #
+        D, Ds, l_d = [inputs.get(k) for k in ['D', 'Ds', 'l_d']]
         s_d, e_d = [sols.get(k) for k in ['s_d', 'e_d']]
-        y_vd, x_hvdd = [sols.get(k) for k in ['y_vd', 'x_hvdd']]
-        a_d, w_d = [sols.get(k) for k in ['a_d', 'w_d']]
-        #
-        self.vehicles = []
-        d2v = {}
-        for v in V:
-            for d in D:
-                if y_vd[v, d] > 0.5:
-                    d2v[d] = v
-            _route = {}
-            for h in H:
-                for d1 in Ds:
-                    for d2 in Ds:
-                        if x_hvdd[h, v, d1, d2] > 0.5:
-                            _route[d1] = d2
-            route = [n0, _route[n0]]
-            while route[-1] != n0:
-                route.append(_route[route[-1]])
-            self.vehicles.append(Vehicle(v, route[1:-1]))
-
+        if not self.is_rb:
+            p_d = inputs['p_d']
+            y_vd, x_hvdd = [sols.get(k) for k in ['y_vd', 'x_hvdd']]
+            a_d, w_d = [sols.get(k) for k in ['a_d', 'w_d']]
+            self.vehicles = []
+            d2v = {}
+            for v in V:
+                for d in D:
+                    if y_vd[v, d] > 0.5:
+                        d2v[d] = v
+                _route = {}
+                for h in H:
+                    for d1 in Ds:
+                        for d2 in Ds:
+                            if x_hvdd[h, v, d1, d2] > 0.5:
+                                _route[d1] = d2
+                route = [n0, _route[n0]]
+                while route[-1] != n0:
+                    route.append(_route[route[-1]])
+                self.vehicles.append(Vehicle(v, route[1:-1]))
+        else:
+            p_d = inputs['p_sd']
         for d in D:
-            demand = Demand(d, d2v[d], int(round(s_d[d])), int(round(e_d[d])), int(p_d[d]), a_d[d] / cT, w_d[d] / cT)
-            self.nodes[l_d[d]].schedule_demand(demand, self.vehicles[d2v[d]])
+            if not self.is_rb:
+                assigned_v = d2v[d]
+                vehO = self.vehicles[assigned_v] if not self.is_rb else None
+                demand = Demand(d, assigned_v, int(round(s_d[d])), int(round(e_d[d])), int(p_d[d]), a_d[d] / cT,
+                                w_d[d] / cT)
+            else:
+                assigned_v = None
+                vehO = None
+                demand = Demand(d, assigned_v, int(round(s_d[d])), int(round(e_d[d])), int(p_d[d]))
+            self.nodes[l_d[d]].schedule_demand(demand, vehO)
 
 
     def clearImage(self):
@@ -221,8 +256,8 @@ class Viz(QWidget):
 
     def drawCanvas(self, qp):
         qp.setFont(default_font)
-        label = 'Scenario %s' % self.problemName
-        qp.drawText(hMargin, vMargin, len(label) * 15, fontSize * 1.5, Qt.AlignLeft, 'Scenario %s' % self.problemName)
+        # label = 'Scenario %s' % self.problemName
+        # qp.drawText(hMargin, vMargin, len(label) * 15, fontSize * 1.5, Qt.AlignLeft, 'Scenario %s' % self.problemName)
         #
         pen = QPen(Qt.black, 1, Qt.SolidLine)
         qp.setPen(pen)
@@ -244,15 +279,17 @@ class Viz(QWidget):
                         xUnit, fontSize * 1.5, Qt.AlignCenter,
                         label)
 
-        for v in self.vehicles:
-            v.draw(qp)
+        if not self.is_rb:
+            for v in self.vehicles:
+                v.draw(qp)
 
         pen = QPen(Qt.black, 1, Qt.SolidLine)
         qp.setPen(pen)
         for n in self.nodes:
             n.draw(qp)
-        for v in self.vehicles:
-            v.draw_label(qp)
+        if not self.is_rb:
+            for v in self.vehicles:
+                v.draw_label(qp)
 
 
 
@@ -270,31 +307,14 @@ def load_sol(prefix):
     return sols
 
 
-def temp():
-    input_prefix = 's_mean0711-nd012-nv006'
-    sol_prefix = '%s-obj2' % input_prefix
-    inputs = load_input(input_prefix)
-    sols = load_sol(sol_prefix)
-
-    print()
-
 if __name__ == '__main__':
     input_prefix = 's_mean0711-nd015-nv008'
-    sol_prefix = '%s-obj1' % input_prefix
+    sol_prefix = '%s-obj2' % input_prefix
 
-    # temp()
+    # input_prefix = 's_rb0711-nd015-nv008'
+    # sol_prefix = '%s' % input_prefix
 
     app = QApplication(sys.argv)
     ex = Viz(input_prefix, sol_prefix)
     ex.save_img()
     sys.exit(app.exec_())
-
-    # apps = []
-    # for i in range(4, 9):
-    #     fpath = opath.join('_temp', 'is_%s.pkl' % 'scenario-2018042%d' % i)
-    #     app = QApplication(sys.argv)
-    #     ex = Viz(fpath)
-    #     ex.save_img()
-    #     apps.append(app)
-    # for app in apps:
-    #     sys.exit(app.exec_())

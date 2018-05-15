@@ -91,8 +91,8 @@ def run():
     lonC, latC = (max_lon + min_lon) / 2.0, (max_lat + min_lat) / 2.0
     map_osm = folium.Map(location=[latC, lonC], zoom_start=11)
     for mn, (lat, lon, polygon) in malls.items():
-        map_osm.add_child(folium.PolyLine(locations=polygon, weight=1.0))
-        folium.RegularPolygonMarker((lat, lon), popup=mn, fill_color='red', radius=6).add_to(map_osm)
+        # map_osm.add_child(folium.PolyLine(locations=polygon, weight=1.0))
+        folium.RegularPolygonMarker((lat, lon), popup=mn, fill_color='red', radius=10).add_to(map_osm)
     map_osm.save(html_fpath)
     #
     html_url = 'file://%s' % (opath.abspath(html_fpath))
