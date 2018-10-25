@@ -239,11 +239,17 @@ class Viz(QWidget):
         self.show()
 
     def paintEvent(self, e):
-        for dev in [self, self.image]:
-            qp = QPainter()
-            qp.begin(dev)
-            self.drawCanvas(qp)
-            qp.end()
+        # for dev in [self, self.image]:
+        #     qp = QPainter()
+        #     qp.begin(dev)
+        #     self.drawCanvas(qp)
+        #     qp.end()
+
+
+        qp = QPainter()
+        qp.begin(self)
+        self.drawCanvas(qp)
+        qp.end()
 
         # dev = self.image
         # qp = QPainter()
@@ -309,7 +315,7 @@ def load_sol(prefix):
 
 if __name__ == '__main__':
     input_prefix = 's_mean0711-nd015-nv008'
-    sol_prefix = '%s-obj2' % input_prefix
+    sol_prefix = '%s-obj1' % input_prefix
 
     # input_prefix = 's_rb0711-nd015-nv008'
     # sol_prefix = '%s' % input_prefix
